@@ -1,0 +1,150 @@
+{% extends "base.html" if session.user_id else "public_base.html" %}
+
+{% block title %}About ElectroMart{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .about-header {
+        background: var(--gradient-primary);
+        color: white;
+        padding: 4rem 2rem;
+        border-radius: var(--border-radius);
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+    .about-header h1 {
+        font-weight: 700;
+        font-size: 3rem;
+    }
+    .about-header p {
+        font-size: 1.25rem;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+        opacity: 0.9;
+    }
+    .mission-statement {
+        text-align: center;
+        margin-bottom: 4rem;
+    }
+    .mission-statement h2 {
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    .mission-statement p {
+        font-size: 1.1rem;
+        color: #6c757d;
+        max-width: 700px;
+        margin: auto;
+    }
+    .feature-card {
+        background-color: var(--card-bg);
+        border: 1px solid #e2e8f0;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+    }
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--box-shadow);
+    }
+    .feature-card .icon-container {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        margin-bottom: 1.5rem;
+    }
+    .feature-card h3 {
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    .feature-card p {
+        color: #4a5568;
+    }
+    .icon-buyer {
+        background-color: rgba(67, 97, 238, 0.1);
+        color: var(--primary-color);
+    }
+    .icon-seller {
+        background-color: rgba(25, 135, 84, 0.1);
+        color: #198754;
+    }
+    .cta-section {
+        text-align: center;
+        margin-top: 4rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    
+    <!-- Header Section -->
+    <div class="about-header">
+        <h1>Welcome to ElectroMart</h1>
+        <p class="lead mt-3">Your Gateway to the World of Electronics</p>
+    </div>
+
+    <!-- Mission Statement Section -->
+    <div class="mission-statement">
+        <h2>Our Mission</h2>
+        <p>
+            In a world filled with endless innovation, finding the right technology from a trusted source can be a challenge. 
+            Our mission is to empower both consumers and creators by providing a seamless, secure, and comprehensive marketplace where the best electronics and the brightest sellers come together.
+        </p>
+    </div>
+    
+    <!-- For Buyers & For Sellers Section -->
+    <div class="row g-4">
+        
+        <!-- For Our Buyers Card -->
+        <div class="col-lg-6">
+            <div class="feature-card">
+                <div class="icon-container icon-buyer">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <h3>For Our Buyers: Shop with Confidence</h3>
+                <p>We believe shopping for electronics should be exciting, not stressful. That’s why we are committed to providing an exceptional experience built on trust and convenience.</p>
+                <ul class="list-unstyled">
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i><strong>Unrivaled Selection:</strong> Discover gadgets from a diverse community of expert sellers.</li>
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i><strong>Verified Quality:</strong> Every seller is vetted to meet our high standards.</li>
+                    <li><i class="fas fa-check-circle text-success me-2"></i><strong>Seamless Experience:</strong> Find what you need, check out securely, and track your order with ease.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- For Our Sellers Card -->
+        <div class="col-lg-6">
+            <div class="feature-card">
+                <div class="icon-container icon-seller">
+                    <i class="fas fa-store"></i>
+                </div>
+                <h3>For Our Sellers: Your Partner in Growth</h3>
+                <p>ElectroMart is more than a platform; we are your partner. We provide the foundation for your business to succeed with powerful, easy-to-use tools.</p>
+                <ul class="list-unstyled">
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i><strong>Instant Market Access:</strong> Connect with thousands of tech-savvy buyers.</li>
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i><strong>Powerful Dashboards:</strong> Manage products and track sales with data-rich analytics.</li>
+                    <li><i class="fas fa-check-circle text-success me-2"></i><strong>A Community You Can Trust:</strong> Join a marketplace that values quality and supports its sellers.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Call to Action Section -->
+    <div class="cta-section">
+        <h2 class="mb-3">Join Us on Our Journey</h2>
+        <p class="lead text-muted mb-4">Whether you’re here to find your next favorite gadget or to build your electronics empire, you are part of the ElectroMart community.</p>
+        <div>
+            <a href="{{ url_for('home_bp.search_page') }}" class="btn btn-primary btn-lg me-2">Explore Our Products</a>
+            <a href="{{ url_for('auth_bp.register') }}" class="btn btn-outline-primary btn-lg">Become a Seller</a>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

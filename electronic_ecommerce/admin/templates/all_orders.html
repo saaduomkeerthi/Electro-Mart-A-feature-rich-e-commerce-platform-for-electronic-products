@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Manage All Orders - Admin{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.3em 0.6em;
+        font-weight: 600;
+        text-transform: capitalize;
+    }
+    .table-hover tbody tr {
+        transition: background-color 0.15s ease-in-out;
+    }
+    #loading-spinner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Manage All Orders</h1>
+</div>
+
+<div class="card">
+    <div class="card-header bg-light">
+        <div class="row align-items-center">
+            <div class="col-md-4">
+                <form id="search-form">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="search-input" placeholder="Search by Order #, Buyer, or Seller...">
+                        <button class="btn btn-outline-secondary" type="submit"><i class="fas fa-search"></i></button>
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="category-filter">
+                    <option value="">Filter by Category</option>
+                    {% for category in all_categories %}
+                        <option value="{{ category.category_id }}">{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-5 text-md-end">
+                <small class="text-muted" id="results-count">Loading...</small>
+            </div>
+        </div>
+    </div>
+    <div class="card-body position-relative" style="min-height: 400px;">
+        <div id="loading-spinner" class="spinner-border text-primary" role="status" style="display: none;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">S.No</th>
+                        <th scope="col">Order #</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Buyer</th>
+                        <th scope="col">Seller</th>
+                        <th scope="col">Amount</th>
+                        <th scope="col">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="orders-table-body">
+                    <!-- Orders will be loaded here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-light d-flex justify-content-center">
+        <nav id="pagination-container" aria-label="Orders pagination"></nav>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    const tableBody = $('#orders-table-body');
+    const paginationContainer = $('#pagination-container');
+    const resultsCount = $('#results-count');
+    const searchInput = $('#search-input');
+    const categoryFilter = $('#category-filter');
+    const loadingSpinner = $('#loading-spinner');
+    let currentPage = 1;
+
+    function fetchOrders(page = 1) {
+        currentPage = page;
+        const searchTerm = searchInput.val();
+        const categoryId = categoryFilter.val();
+
+        loadingSpinner.show();
+        tableBody.empty();
+
+        $.ajax({
+            url: `{{ url_for('admin_bp.api_get_all_orders') }}`,
+            method: 'GET',
+            data: {
+                page: currentPage,
+                search: searchTerm,
+                category_id: categoryId
+            },
+            success: function(response) {
+                tableBody.empty();
+                if (response.orders && response.orders.length > 0) {
+                    const startingSn = (response.current_page - 1) * 15 + 1;
+                    response.orders.forEach((order, index) => {
+                        const statusColors = {
+                            'pending': 'secondary', 'confirmed': 'info', 'processing': 'primary',
+                            'shipped': 'warning', 'delivered': 'success', 'cancelled': 'danger',
+                            'returned': 'dark', 'refunded': 'dark'
+                        };
+                        const statusColor = statusColors[order.status] || 'secondary';
+
+                        tableBody.append(`
+                            <tr>
+                                <td>${startingSn + index}</td>
+                                <td><strong>${order.order_number}</strong></td>
+                                <td>${order.order_date}</td>
+                                <td>${order.buyer_name}</td>
+                                <td>${order.seller_name}</td>
+                                <td>$${parseFloat(order.total_amount).toFixed(2)}</td>
+                                <td><span class="badge rounded-pill bg-${statusColor} status-badge">${order.status}</span></td>
+                            </tr>
+                        `);
+                    });
+                } else {
+                    tableBody.append('<tr><td colspan="7" class="text-center text-muted">No orders found.</td></tr>');
+                }
+                
+                resultsCount.text(`${response.total_count} Orders Found`);
+                renderPagination(response.total_pages, response.current_page);
+            },
+            error: function() {
+                tableBody.html('<tr><td colspan="7" class="text-center text-danger">Failed to load orders. Please try again.</td></tr>');
+                resultsCount.text('Error');
+            },
+            complete: function() {
+                loadingSpinner.hide();
+            }
+        });
+    }
+
+    function renderPagination(totalPages, currentPage) {
+        paginationContainer.empty();
+        if (totalPages <= 1) return;
+
+        let paginationHtml = '<ul class="pagination mb-0">';
+        
+        // Previous button
+        paginationHtml += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a></li>`;
+
+        // Page numbers
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === currentPage) {
+                paginationHtml += `<li class="page-item active" aria-current="page"><span class="page-link">${i}</span></li>`;
+            } else {
+                paginationHtml += `<li class="page-item"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+            }
+        }
+
+        // Next button
+        paginationHtml += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage + 1}">Next</a></li>`;
+        paginationHtml += '</ul>';
+        paginationContainer.html(paginationHtml);
+    }
+
+    // --- Event Handlers ---
+    $('#search-form').on('submit', function(e) {
+        e.preventDefault();
+        fetchOrders(1);
+    });
+
+    categoryFilter.on('change', function() {
+        fetchOrders(1);
+    });
+
+    paginationContainer.on('click', 'a.page-link', function(e) {
+        e.preventDefault();
+        const page = $(this).data('page');
+        if (page) {
+            fetchOrders(page);
+        }
+    });
+
+    // Initial load
+    fetchOrders(1);
+});
+</script>
+{% endblock %}

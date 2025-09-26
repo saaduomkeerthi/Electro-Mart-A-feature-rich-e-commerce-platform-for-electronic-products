@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}My Shopping Cart{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">My Shopping Cart</h1>
+</div>
+
+<div class="row g-4">
+    <!-- Cart Items Column -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body" id="cart-items-container">
+                <!-- Cart items will be loaded here by JavaScript -->
+                <div class="text-center p-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Summary Column -->
+    <div class="col-lg-4">
+        <div class="card position-sticky" style="top: 85px;">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Order Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Subtotal</span>
+                    <strong id="summary-subtotal">$0.00</strong>
+                </div>
+                <div id="discount-row" class="d-flex justify-content-between text-success mb-2" style="display: none!important;">
+                    <span>Discount (<span id="discount-code"></span>)</span>
+                    <strong id="summary-discount">-$0.00</strong>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between fw-bold fs-5">
+                    <span>Total</span>
+                    <span id="summary-total">$0.00</span>
+                </div>
+                <div class="d-grid mt-4">
+                    <a href="{{ url_for('buyer_bp.checkout_page') }}" id="checkout-btn" class="btn btn-primary btn-lg disabled">Proceed to Checkout</a>
+                </div>
+            </div>
+            <div class="card-footer">
+                <p class="mb-2 fw-medium">Have a coupon code?</p>
+                <form id="coupon-form">
+                    <div class="input-group">
+                        <input type="text" id="coupon-input" class="form-control" placeholder="Enter Coupon Code" style="text-transform: uppercase;">
+                        <button class="btn btn-secondary" type="submit">Apply</button>
+                    </div>
+                </form>
+                <div id="coupon-message" class="mt-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    const cartItemsContainer = $('#cart-items-container');
+    const checkoutBtn = $('#checkout-btn');
+
+    function renderCart(items, total, discountInfo = null) {
+        cartItemsContainer.empty();
+        if (items && items.length > 0) {
+            let itemsHtml = '<ul class="list-group list-group-flush">';
+            items.forEach(item => {
+                const imageUrl = item.image_url ? `/${item.image_url}` : `{{ url_for('static', filename='images/placeholder.png') }}`;
+                itemsHtml += `
+                    <li class="list-group-item d-flex align-items-center">
+                        <img src="${imageUrl}" width="80" class="me-3 rounded" alt="${item.name}">
+                        <div class="flex-grow-1">
+                            <h6 class="my-0">${item.name}</h6>
+                            <small class="text-muted">Price: $${parseFloat(item.price).toFixed(2)}</small>
+                        </div>
+                        <div class="px-3">
+                            <input type="number" value="${item.quantity}" min="1" max="${item.stock_quantity}" class="form-control form-control-sm quantity-input" data-product-id="${item.product_id}" style="width: 70px;">
+                        </div>
+                        <div class="px-3">
+                            <strong class="text-nowrap">$${parseFloat(item.subtotal).toFixed(2)}</strong>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger remove-item-btn" data-product-id="${item.product_id}">&times;</button>
+                    </li>
+                `;
+            });
+            itemsHtml += '</ul>';
+            cartItemsContainer.html(itemsHtml);
+            checkoutBtn.removeClass('disabled');
+        } else {
+            cartItemsContainer.html('<div class="text-center p-5 text-muted">Your cart is empty.</div>');
+            checkoutBtn.addClass('disabled');
+        }
+
+        // Update Summary
+        $('#summary-subtotal').text(`$${parseFloat(total).toFixed(2)}`);
+        
+        const discountRow = $('#discount-row');
+        if (discountInfo && discountInfo.discount_amount > 0) {
+            $('#discount-code').text(discountInfo.code);
+            $('#summary-discount').text(`-$${parseFloat(discountInfo.discount_amount).toFixed(2)}`);
+            discountRow.css('display', 'flex');
+            $('#summary-total').text(`$${parseFloat(total - discountInfo.discount_amount).toFixed(2)}`);
+            $('#coupon-input').val(discountInfo.code).prop('disabled', true);
+            $('#coupon-form button').text('Remove').removeClass('btn-secondary').addClass('btn-danger');
+        } else {
+            discountRow.hide();
+            $('#summary-total').text(`$${parseFloat(total).toFixed(2)}`);
+            $('#coupon-input').val('').prop('disabled', false);
+            $('#coupon-form button').text('Apply').removeClass('btn-danger').addClass('btn-secondary');
+        }
+    }
+
+    function loadCart() {
+        $.get("{{ url_for('buyer_bp.api_get_cart') }}", function(response) {
+            const discountInfo = {{ session.get('applied_coupon')|tojson|safe }};
+            renderCart(response.items, response.total, discountInfo);
+        });
+    }
+
+    cartItemsContainer.on('change', '.quantity-input', function() {
+        const productId = $(this).data('product-id');
+        const quantity = $(this).val();
+        
+        // Using $.ajax for consistency and explicit contentType
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_update_cart') }}",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ product_id: productId, quantity: quantity }),
+            success: function() {
+                loadCart();
+                updateCartCount();
+            }
+        });
+    });
+
+    // **** THIS IS THE CORRECTED FUNCTION ****
+    cartItemsContainer.on('click', '.remove-item-btn', function() {
+        const productId = $(this).data('product-id');
+        
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_remove_from_cart') }}",
+            method: 'POST',
+            contentType: 'application/json', // This line fixes the 415 error
+            data: JSON.stringify({ product_id: productId }),
+            success: function(response) {
+                loadCart();
+                updateCartCount();
+            },
+            error: function(xhr) {
+                alert(xhr.responseJSON ? xhr.responseJSON.error : "Could not remove item.");
+            }
+        });
+    });
+
+    $('#coupon-form').on('submit', function(e) {
+        e.preventDefault();
+        const button = $(this).find('button');
+        const input = $('#coupon-input');
+        const messageContainer = $('#coupon-message');
+        messageContainer.empty();
+        
+        if (button.hasClass('btn-danger')) {
+            $.post("{{ url_for('buyer_bp.api_remove_coupon') }}", function() {
+                loadCart();
+            });
+            return;
+        }
+
+        const couponCode = input.val();
+        if (!couponCode) return;
+
+        button.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+        $.ajax({
+            url: `{{ url_for('buyer_bp.api_apply_coupon') }}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ coupon_code: couponCode }),
+            success: function(response) {
+                messageContainer.html(`<div class="text-success small">${response.message}</div>`);
+                loadCart();
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "An error occurred.";
+                messageContainer.html(`<div class="text-danger small">${errorMsg}</div>`);
+            },
+            complete: function() {
+                button.prop('disabled', false).text('Apply');
+            }
+        });
+    });
+
+    loadCart();
+});
+</script>
+{% endblock %}

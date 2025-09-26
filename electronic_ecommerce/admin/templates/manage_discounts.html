@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Discounts - Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Manage Discounts</h1>
+    <a href="{{ url_for('admin_bp.add_discount_page') }}" class="btn btn-sm btn-primary">
+        <i class="fas fa-plus me-1"></i> Add New Discount
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Code</th>
+                        <th>Type</th>
+                        <th>Value</th>
+                        <th>Usage</th>
+                        <th>Expires On</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="discounts-table-body">
+                    <!-- Data will be loaded by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-light d-flex justify-content-center">
+        <nav id="pagination-container"></nav>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    const tableBody = $('#discounts-table-body');
+    const paginationContainer = $('#pagination-container');
+
+    function fetchDiscounts(page = 1) {
+        tableBody.html('<tr><td colspan="7" class="text-center"><div class="spinner-border spinner-border-sm"></div></td></tr>');
+
+        $.get(`{{ url_for('admin_bp.api_get_discounts') }}?page=${page}`, function(response) {
+            tableBody.empty();
+            if (response.discounts && response.discounts.length > 0) {
+                response.discounts.forEach(d => {
+                    const valueDisplay = d.discount_type === 'percentage'
+                        ? `${d.value}%`
+                        : `$${parseFloat(d.value).toFixed(2)}`;
+                    
+                    const usageDisplay = `${d.times_used} / ${d.usage_limit}`;
+                    
+                    const expiryDisplay = d.end_date 
+                        ? new Date(d.end_date).toLocaleDateString() 
+                        : 'Never';
+                    
+                    const statusBadge = d.is_active
+                        ? `<span class="badge bg-success">Active</span>`
+                        : `<span class="badge bg-secondary">Inactive</span>`;
+
+                    tableBody.append(`
+                        <tr>
+                            <td><strong>${d.code}</strong></td>
+                            <td class="text-capitalize">${d.discount_type}</td>
+                            <td>${valueDisplay}</td>
+                            <td>${usageDisplay}</td>
+                            <td>${expiryDisplay}</td>
+                            <td>${statusBadge}</td>
+                            <td>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input status-toggle" type="checkbox" role="switch" 
+                                           data-id="${d.discount_id}" ${d.is_active ? 'checked' : ''}>
+                                </div>
+                            </td>
+                        </tr>
+                    `);
+                });
+            } else {
+                tableBody.html('<tr><td colspan="7" class="text-center text-muted">No discounts found.</td></tr>');
+            }
+            renderPagination(response.total_pages, response.current_page);
+        });
+    }
+
+    function renderPagination(totalPages, currentPage) {
+        paginationContainer.empty();
+        if (totalPages <= 1) return;
+        let paginationHtml = '<ul class="pagination mb-0">';
+        for (let i = 1; i <= totalPages; i++) {
+            paginationHtml += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+        }
+        paginationHtml += '</ul>';
+        paginationContainer.html(paginationHtml);
+    }
+
+    paginationContainer.on('click', 'a.page-link', function(e) {
+        e.preventDefault();
+        fetchDiscounts($(this).data('page'));
+    });
+
+    tableBody.on('change', '.status-toggle', function() {
+        const checkbox = $(this);
+        const discountId = checkbox.data('id');
+        const isActive = checkbox.is(':checked');
+        
+        $.ajax({
+            url: `{{ url_for('admin_bp.api_update_discount_status') }}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ discount_id: discountId, is_active: isActive }),
+            success: function() {
+                // Optionally show a success toast/message
+                fetchDiscounts(); // Refresh the table
+            },
+            error: function() {
+                alert('Failed to update status. Please try again.');
+                checkbox.prop('checked', !isActive); // Revert checkbox on error
+            }
+        });
+    });
+
+    // Initial load
+    fetchDiscounts(1);
+});
+</script>
+{% endblock %}

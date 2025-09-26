@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Cancellation Requests{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 fw-bold mb-1">Manage Cancellation Requests</h1>
+            <p class="mb-0 text-muted">Review and process order cancellation requests from buyers.</p>
+        </div>
+    </div>
+
+    <!-- This div will show success/error messages after an action -->
+    <div id="action-message" class="mb-3"></div>
+    
+    <!-- Loading Spinner (Visible on initial page load) -->
+    <div id="loading-spinner" class="text-center mt-5">
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2 text-muted">Fetching pending requests...</p>
+    </div>
+
+    <!-- Main Card for the Table (Hidden by default) -->
+    <div id="cancellations-container" class="card shadow-sm" style="display: none;">
+        <div class="card-header bg-white py-3">
+            <h4 class="mb-0"><i class="fas fa-ban me-2 text-danger"></i>Pending Requests</h4>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Order #</th>
+                            <th>Buyer</th>
+                            <th>Seller</th>
+                            <th class="text-end">Order Total</th>
+                            <th>Reason</th>
+                            <th>Requested On</th>
+                            <th class="text-center pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cancellations-table-body">
+                        <!-- AJAX content will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty State Message (Hidden by default) -->
+    <div id="no-requests-message" class="text-center my-5" style="display: none;">
+        <div class="card border-0 bg-transparent">
+            <div class="card-body">
+                <i class="fas fa-check-circle fa-4x text-light mb-3"></i>
+                <h5 class="card-title">All Caught Up!</h5>
+                <p class="card-text text-muted">There are no pending cancellation requests to review.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="confirmationModalLabel">Confirm Action</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="confirmationModalBody">
+        <!-- Message will be set by JavaScript -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <!-- This button's class will now be changed dynamically -->
+        <button type="button" class="btn" id="confirm-action-btn">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    const tableContainer = $('#cancellations-container');
+    const tableBody = $('#cancellations-table-body');
+    const spinner = $('#loading-spinner');
+    const noRequestsMsg = $('#no-requests-message');
+    const actionMessageDiv = $('#action-message');
+
+    const confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+    const confirmActionBtn = $('#confirm-action-btn');
+
+    function loadCancellationRequests() {
+        spinner.show();
+        tableContainer.hide();
+        noRequestsMsg.hide();
+        tableBody.empty();
+
+        $.ajax({
+            url: "{{ url_for('admin_bp.api_get_pending_cancellations') }}",
+            method: 'GET',
+            success: function(requests) {
+                spinner.hide();
+                if (requests && requests.length > 0) {
+                    requests.forEach(req => {
+                        const reasonText = req.reason.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                        
+                        const row = `
+                            <tr>
+                                <td class="ps-4 fw-bold">${req.order_number}</td>
+                                <td>${req.buyer_name}</td>
+                                <td>${req.seller_name}</td>
+                                <td class="text-end">$${req.total_amount.toFixed(2)}</td>
+                                <td>
+                                    ${reasonText}
+                                    ${req.comments ? `<i class="fas fa-comment-dots ms-2 text-muted" data-bs-toggle="tooltip" title="Comment: ${req.comments}"></i>` : ''}
+                                </td>
+                                <td>${req.requested_at}</td>
+                                <td class="text-center pe-4">
+                                    <!-- Changed btn-outline-success to btn-outline-danger -->
+                                    <button class="btn btn-sm btn-outline-danger action-btn" data-request-id="${req.request_id}" data-action="rejected">Reject</button>
+                                    <button class="btn btn-sm btn-success action-btn ms-1" data-request-id="${req.request_id}" data-action="approved">Approve</button>
+                                </td>
+                            </tr>
+                        `;
+                        tableBody.append(row);
+                    });
+                    tableContainer.show();
+                    $('[data-bs-toggle="tooltip"]').tooltip();
+                } else {
+                    noRequestsMsg.show();
+                }
+            },
+            error: function() {
+                spinner.hide();
+                actionMessageDiv.html('<div class="alert alert-danger">Could not load cancellation requests. Please try again later.</div>');
+            }
+        });
+    }
+
+    // --- START: MODIFIED SECTION ---
+    // This logic now correctly sets the confirm button's color.
+    tableBody.on('click', '.action-btn', function() {
+        const requestId = $(this).data('request-id');
+        const action = $(this).data('action');
+        const orderNumber = $(this).closest('tr').find('td:first').text();
+
+        let modalMessage = `Are you sure you want to <strong>${action}</strong> the cancellation request for order <strong>${orderNumber}</strong>?`;
+        $('#confirmationModalBody').html(modalMessage);
+
+        // Reset classes and set the correct one based on the action
+        confirmActionBtn.removeClass('btn-success btn-danger').text('Confirm');
+        if (action === 'approved') {
+            confirmActionBtn.addClass('btn-success').text('Approve');
+        } else { // 'rejected'
+            confirmActionBtn.addClass('btn-danger').text('Reject');
+        }
+        
+        confirmActionBtn.data('request-id', requestId);
+        confirmActionBtn.data('action', action);
+        
+        confirmationModal.show();
+    });
+    // --- END: MODIFIED SECTION ---
+
+    confirmActionBtn.on('click', function() {
+        const requestId = $(this).data('request-id');
+        const action = $(this).data('action');
+
+        $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Processing...');
+
+        $.ajax({
+            url: "{{ url_for('admin_bp.api_process_cancellation') }}",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ request_id: requestId, action: action }),
+            success: function(response) {
+                confirmationModal.hide();
+                actionMessageDiv.html(`<div class="alert alert-success alert-dismissible fade show" role="alert">${response.message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`);
+                loadCancellationRequests();
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : 'An error occurred.';
+                $('#confirmationModalBody').html(`<div class="alert alert-danger mb-0">${errorMsg}</div>`);
+            },
+            complete: function() {
+                // The text will be reset the next time the modal is opened
+                confirmActionBtn.prop('disabled', false);
+            }
+        });
+    });
+
+    // Initial Load
+    loadCancellationRequests();
+});
+</script>
+{% endblock %}

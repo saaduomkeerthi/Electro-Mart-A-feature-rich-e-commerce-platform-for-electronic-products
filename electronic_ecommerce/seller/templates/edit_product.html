@@ -1,0 +1,357 @@
+<!-- electronic_ecommerce/seller/templates/edit_product.html -->
+
+{% extends "base.html" %}
+
+{% block title %}Edit Product{% endblock %}
+
+{% block head %}
+{{ super() }}
+<!-- START: NEW CSS BLOCK FOR FORM FIELD STYLING -->
+<style>
+    /*
+      This targets all standard input fields, textareas, and select dropdowns
+      within the form to give them a consistent, modern look.
+    */
+    #edit-product-form .form-control,
+    #edit-product-form .form-select {
+        border: 1px solid #ced4da; /* A standard, visible light-grey border */
+        border-radius: 0.375rem;     /* Slightly rounded corners */
+        padding: 0.75rem 1rem;       /* Comfortable padding */
+        transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out; /* Smooth transition for hover/focus */
+    }
+
+    /*
+      This is the hover and focus effect.
+      When a user hovers over or clicks into a field, the border will turn
+      the primary blue color, and a subtle glow (box-shadow) will appear.
+    */
+    #edit-product-form .form-control:hover,
+    #edit-product-form .form-select:hover,
+    #edit-product-form .form-control:focus,
+    #edit-product-form .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25); /* The blue glow effect */
+    }
+
+    /* Small style for the remove image button */
+    .remove-existing-img-btn {
+        line-height: 1;
+        padding: 0.2rem 0.4rem;
+    }
+</style>
+<!-- END: NEW CSS BLOCK -->
+{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid">
+    <!-- The product_id is passed from the Flask route -->
+    <h1 class="h2 mb-4" data-productid="{{ product_id }}">Edit Product</h1>
+
+    <form id="edit-product-form" enctype="multipart/form-data">
+        <div class="row">
+            <!-- Left Column: Main Details -->
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header"><h5>Basic Information</h5></div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Product Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Full Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="6"></textarea>
+                        </div>
+                         <div class="mb-3">
+                            <label for="short_description" class="form-label">Short Description (Max 500 chars)</label>
+                            <textarea class="form-control" id="short_description" name="short_description" rows="3" maxlength="500"></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="video_url" class="form-label">Product Video URL (Optional)</label>
+                            <input type="url" class="form-control" id="video_url" name="video_url" placeholder="e.g., https://www.youtube.com/watch?v=...">
+                            <div class="form-text">Paste a link to a YouTube, Vimeo, or other video hosting page.</div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header"><h5>Images</h5></div>
+                    <div class="card-body">
+                        <label class="form-label">Existing Images</label>
+                        <div id="existing-images-preview" class="mb-3 d-flex flex-wrap gap-2">
+                            <p>Loading existing images...</p>
+                        </div>
+                        <hr>
+                        <label for="new-images" class="form-label">Upload New Images</label>
+                        <input class="form-control" type="file" id="new-images" name="new_images" multiple accept="image/*">
+                        <div id="new-image-preview" class="mt-3 d-flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Pricing, Category, etc. -->
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                     <div class="card-header"><h5>Organization</h5></div>
+                     <div class="card-body">
+                        <div class="mb-3">
+                            <label for="sku" class="form-label">SKU (Stock Keeping Unit)</label>
+                            <input type="text" class="form-control" id="sku" name="sku" required>
+                            <div class="form-text">Must be unique for each product.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="main_category" class="form-label">Main Category</label>
+                            <select class="form-select" id="main_category" required>
+                                <option value="">Loading...</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3" id="subcategory-wrapper" style="display: none;">
+                            <label for="subcategory" class="form-label">Subcategory</label>
+                            <select class="form-select" id="subcategory" required>
+                                <!-- Populated by JS -->
+                            </select>
+                        </div>
+
+                        <input type="hidden" id="category_id" name="category_id" value="">
+
+                        <div class="mb-3">
+                            <label for="brand" class="form-label">Brand</label>
+                            <input type="text" class="form-control" id="brand" name="brand">
+                        </div>
+                         <div class="mb-3">
+                            <label for="model" class="form-label">Model</label>
+                            <input type="text" class="form-control" id="model" name="model">
+                        </div>
+                     </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header"><h5>Pricing & Inventory</h5></div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="price" class="form-label">Price ($)</label>
+                            <input type="number" class="form-control" id="price" name="price" step="0.01" min="0" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="compare_price" class="form-label">Compare Price ($) (Optional)</label>
+                            <input type="number" class="form-control" id="compare_price" name="compare_price" step="0.01" min="0">
+                            <div class="form-text">Original price to show a discount.</div>
+                        </div>
+                         <div class="mb-3">
+                            <label for="stock_quantity" class="form-label">Stock Quantity</label>
+                            <input type="number" class="form-control" id="stock_quantity" name="stock_quantity" min="0" required>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Product Specifications</h5>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="add-spec-btn"><i class="fas fa-plus"></i> Add Specification</button>
+            </div>
+            <div class="card-body">
+                <div id="specifications-container"></div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end mb-5">
+            <a href="{{ url_for('seller_bp.view_products_page') }}" class="btn btn-secondary btn-lg me-3">Cancel</a>
+            <button type="submit" class="btn btn-primary btn-lg">Update Product</button>
+        </div>
+    </form>
+    <div id="form-message" class="mt-3"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // --- Your existing JavaScript is perfect and requires NO CHANGES ---
+    let structuredCategories = [];
+    const productId = $('h1').data('productid');
+    let imagesToDelete = new Set();
+
+    const mainCategorySelect = $('#main_category');
+    const subcategoryWrapper = $('#subcategory-wrapper');
+    const subcategorySelect = $('#subcategory');
+    const finalCategoryIdInput = $('#category_id');
+
+    function populateForm(productData) {
+        const product = productData.product;
+        $('#name').val(product.name);
+        $('#description').val(product.description);
+        $('#short_description').val(product.short_description);
+        $('#sku').val(product.sku);
+        $('#brand').val(product.brand);
+        $('#model').val(product.model);
+        $('#price').val(product.price);
+        $('#compare_price').val(product.compare_price);
+        $('#stock_quantity').val(product.stock_quantity);
+        $('#video_url').val(product.video_url); 
+        finalCategoryIdInput.val(product.category_id);
+
+        if (productData.specifications && productData.specifications.length > 0) {
+            productData.specifications.forEach(spec => addSpecField(spec.spec_name, spec.spec_value));
+        }
+
+        const existingImagesContainer = $('#existing-images-preview');
+        existingImagesContainer.empty();
+        if (productData.images && productData.images.length > 0) {
+            productData.images.forEach(img => {
+                const imgContainer = $(`
+                    <div class="position-relative" id="image-container-${img.image_id}">
+                        <img src="/${img.image_url}" class="img-thumbnail" style="width: 100px; height: 100px; object-fit: cover;">
+                        <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 remove-existing-img-btn" data-imageid="${img.image_id}">
+                            &times;
+                        </button>
+                    </div>
+                `);
+                existingImagesContainer.append(imgContainer);
+            });
+        } else {
+            existingImagesContainer.html('<p>No images found for this product.</p>');
+        }
+
+        const isSubcategory = product.parent_category_id !== null;
+        const mainCatId = isSubcategory ? product.parent_category_id : product.category_id;
+        mainCategorySelect.val(mainCatId);
+        mainCategorySelect.trigger('change');
+        if(isSubcategory) {
+            setTimeout(() => {
+                subcategorySelect.val(product.category_id);
+            }, 100);
+        }
+    }
+
+    function loadInitialData() {
+        const categoriesRequest = $.ajax({
+            url: "/seller/api/categories",
+            method: 'GET'
+        });
+        const productRequest = $.ajax({
+            url: `/seller/api/product/${productId}`,
+            method: 'GET'
+        });
+        $.when(categoriesRequest, productRequest).done(function(categoriesResponse, productResponse) {
+            structuredCategories = categoriesResponse[0];
+            mainCategorySelect.empty().append('<option value="" selected disabled>Select a main category...</option>');
+            if (structuredCategories && structuredCategories.length > 0) {
+                structuredCategories.forEach(mainCat => {
+                    mainCategorySelect.append(new Option(mainCat.name, mainCat.category_id));
+                });
+            }
+            const productData = productResponse[0];
+            populateForm(productData);
+        }).fail(function() {
+            const errorMsg = "Could not load required data. Please refresh the page.";
+            $('#form-message').html(`<div class="alert alert-danger">${errorMsg}</div>`);
+            $('#edit-product-form').hide();
+        });
+    }
+
+    mainCategorySelect.on('change', function() {
+        const selectedMainId = $(this).val();
+        subcategorySelect.empty();
+        subcategoryWrapper.hide();
+        if (!selectedMainId) return;
+        const selectedCategory = structuredCategories.find(cat => cat.category_id == selectedMainId);
+        if (selectedCategory && selectedCategory.subcategories && selectedCategory.subcategories.length > 0) {
+            subcategorySelect.append('<option value="" disabled>Select a subcategory...</option>');
+            selectedCategory.subcategories.forEach(subCat => {
+                subcategorySelect.append(new Option(subCat.name, subCat.category_id));
+            });
+            subcategoryWrapper.show();
+            if (finalCategoryIdInput.val()) {
+                subcategorySelect.val(finalCategoryIdInput.val());
+            }
+        } else {
+            finalCategoryIdInput.val(selectedMainId);
+        }
+    });
+
+    subcategorySelect.on('change', function() {
+        const selectedSubId = $(this).val();
+        if (selectedSubId) {
+            finalCategoryIdInput.val(selectedSubId);
+        }
+    });
+
+    $('#existing-images-preview').on('click', '.remove-existing-img-btn', function() {
+        const imageId = $(this).data('imageid');
+        imagesToDelete.add(imageId);
+        $(this).closest(`#image-container-${imageId}`).fadeOut(300, function() { $(this).remove(); });
+    });
+
+    $('#new-images').on('change', function(event) {
+        const previewContainer = $('#new-image-preview');
+        previewContainer.empty();
+        Array.from(event.target.files).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = $('<img>').attr('src', e.target.result).addClass('img-thumbnail').css({width: '100px', height: '100px', objectFit: 'cover'});
+                previewContainer.append(img);
+            };
+            reader.readAsDataURL(file);
+        });
+    });
+
+    function addSpecField(name = '', value = '') {
+        const specHtml = `
+            <div class="row mb-2 spec-row">
+                <div class="col-5"><input type="text" class="form-control spec-name" placeholder="e.g., Screen Size" value="${name}"></div>
+                <div class="col-5"><input type="text" class="form-control spec-value" placeholder="e.g., 6.5 inches" value="${value}"></div>
+                <div class="col-2"><button type="button" class="btn btn-danger remove-spec-btn w-100">Remove</button></div>
+            </div>`;
+        $('#specifications-container').append(specHtml);
+    }
+    $('#add-spec-btn').on('click', () => addSpecField());
+    $('#specifications-container').on('click', '.remove-spec-btn', function() { $(this).closest('.spec-row').remove(); });
+
+    $('#edit-product-form').on('submit', function(e) {
+        e.preventDefault();
+        $('#form-message').html('');
+        if (!finalCategoryIdInput.val()) {
+            $('#form-message').html('<div class="alert alert-danger">Please select a final category for the product.</div>');
+            return;
+        }
+        const formData = new FormData(this);
+        const specifications = [];
+        $('.spec-row').each(function() {
+            const name = $(this).find('.spec-name').val().trim();
+            const value = $(this).find('.spec-value').val().trim();
+            if (name && value) { specifications.push({ name: name, value: value }); }
+        });
+        if (specifications.length > 0) {
+            formData.append('specifications', JSON.stringify(specifications));
+        }
+        imagesToDelete.forEach(id => formData.append('images_to_delete[]', id));
+        $.ajax({
+            url: `/seller/api/update_product/${productId}`,
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                $('#form-message').html(`<div class="alert alert-success">${response.message}</div>`);
+                setTimeout(() => {
+                    window.location.href = "{{ url_for('seller_bp.view_products_page') }}";
+                }, 2000);
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "An unexpected error occurred.";
+                $('#form-message').html(`<div class="alert alert-danger">${errorMsg}</div>`);
+            }
+        });
+    });
+
+    loadInitialData();
+});
+</script>
+{% endblock %}

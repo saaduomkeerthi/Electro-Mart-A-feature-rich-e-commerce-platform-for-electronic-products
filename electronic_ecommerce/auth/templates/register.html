@@ -1,0 +1,272 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Create an Account - ElectroMart{% endblock %}
+
+{% block form_title %}Create Your Account{% endblock %}
+
+{% block head %}
+<style>
+    .auth-card {
+        max-width: 500px;
+        transition: max-width 0.5s ease-in-out;
+    }
+    .auth-card.seller-active {
+        max-width: 900px;
+    }
+    .auth-columns {
+        padding: 0;
+    }
+    /* Reduce label font size and margin for a tighter look */
+    .form-label {
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+    }
+    .form-control {
+        padding: 0.55rem 0.75rem; /* Slightly smaller input fields */
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<form id="register-form" novalidate>
+    <div class="row">
+        <!-- Column 1: Buyer/User fields -->
+        <div class="col-md-6 auth-columns" id="buyer-column">
+            <!-- Using mb-2 for a more compact layout -->
+            <div class="mb-2">
+                <label for="full_name" class="form-label">Full Name</label>
+                <input type="text" class="form-control" id="full_name" required>
+                <div class="invalid-feedback">Please enter your full name.</div>
+            </div>
+            <div class="mb-2">
+                <label for="email" class="form-label">Email Address</label>
+                <input type="email" class="form-control" id="email" required>
+                <div class="invalid-feedback">Please enter a valid email.</div>
+            </div>
+            <div class="mb-2">
+                <label for="phone" class="form-label">Phone (Optional)</label>
+                <input type="tel" class="form-control" id="phone">
+            </div>
+            <div class="mb-2">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" required>
+                <div class="invalid-feedback">Password must be at least 8 characters.</div>
+            </div>
+            <div class="mb-2">
+                <label for="confirm_password" class="form-label">Confirm Password</label>
+                <input type="password" class="form-control" id="confirm_password" required>
+                <div class="invalid-feedback">Passwords do not match.</div>
+            </div>
+        </div>
+
+        <!-- Column 2: Seller fields -->
+        <div class="col-md-6 auth-columns" id="seller-fields" style="display: none;">
+            <div class="ps-md-4">
+                <h5 class="mb-3 text-center">Business Information</h5>
+                <div class="mb-2">
+                    <label for="business_name" class="form-label">Business Name</label>
+                    <input type="text" class="form-control" id="business_name">
+                    <div class="invalid-feedback">Business name is required.</div>
+                </div>
+                <div class="mb-2">
+                    <label for="business_phone" class="form-label">Business Phone</label>
+                    <input type="tel" class="form-control" id="business_phone">
+                    <div class="invalid-feedback">Business phone is required.</div>
+                </div>
+                <div class="mb-2">
+                    <label for="business_address" class="form-label">Business Address</label>
+                    <input type="text" class="form-control" id="business_address">
+                    <div class="invalid-feedback">Business address is required.</div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <label for="business_country" class="form-label">Country</label>
+                        <select id="business_country" class="form-select"><option value="" selected>Select...</option></select>
+                        <div class="invalid-feedback">Required.</div>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <label for="business_state" class="form-label">State</label>
+                        <select id="business_state" class="form-select" disabled><option value="" selected>Select...</option></select>
+                        <div class="invalid-feedback">Required.</div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-8 mb-2">
+                        <label for="business_city" class="form-label">City</label>
+                        <select id="business_city" class="form-select" disabled><option value="" selected>Select...</option></select>
+                        <div class="invalid-feedback">Required.</div>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label for="business_zip_code" class="form-label">Zip</label>
+                        <input type="text" class="form-control" id="business_zip_code">
+                        <div class="invalid-feedback">Required.</div>
+                    </div>
+                </div>
+                <div class="text-center mt-2">
+                    <a href="#" id="show-buyer-form" class="text-muted small">Register as a buyer instead</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="d-grid mt-3">
+        <button type="submit" class="btn btn-primary btn-lg">Register</button>
+    </div>
+</form>
+
+<div id="form-message" class="mt-3"></div>
+
+<div class="text-center mt-3 pt-3 border-top">
+    <div id="seller-prompt">
+        <p class="mb-1">Want to sell on ElectroMart? <a href="#" id="show-seller-form">Register as a Seller</a></p>
+    </div>
+    <p class="mb-0">Already have an account? <a href="{{ url_for('auth_bp.login') }}">Log In</a></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// The JavaScript does not need to change.
+$(document).ready(function() {
+    let currentRole = 'buyer';
+    const sellerFields = $('#seller-fields');
+    const sellerPrompt = $('#seller-prompt');
+    const formTitle = $('.auth-header h4');
+    const authCard = $('.auth-card');
+
+    $('#show-seller-form').on('click', function(e) {
+        e.preventDefault();
+        currentRole = 'seller';
+        formTitle.text('Create Buyer & Seller Account');
+        authCard.addClass('seller-active');
+        sellerPrompt.hide();
+        sellerFields.show();
+        loadCountries();
+    });
+
+    $('#show-buyer-form').on('click', function(e) {
+        e.preventDefault();
+        currentRole = 'buyer';
+        formTitle.text('Create Your Account');
+        authCard.removeClass('seller-active');
+        sellerFields.hide();
+        sellerPrompt.show();
+    });
+
+    const countrySelect = $('#business_country');
+    const stateSelect = $('#business_state');
+    const citySelect = $('#business_city');
+
+    function loadCountries() {
+        if (countrySelect.children('option').length > 1) return;
+        $.ajax({
+            url: '/api/countries', method: 'GET',
+            success: function(countries) {
+                countries.forEach(c => countrySelect.append(new Option(c.name, c.iso2)));
+            }
+        });
+    }
+    countrySelect.change(function() {
+        const countryCode = $(this).val();
+        stateSelect.html('<option value="">Select...</option>').prop('disabled', true);
+        citySelect.html('<option value="">Select...</option>').prop('disabled', true);
+        if (countryCode) {
+            $.ajax({
+                url: `/api/states/${countryCode}`, method: 'GET',
+                success: function(states) {
+                    states.forEach(s => stateSelect.append(new Option(s.name, s.iso2)));
+                    stateSelect.prop('disabled', false);
+                }
+            });
+        }
+    });
+    stateSelect.change(function() {
+        const countryCode = countrySelect.val();
+        const stateCode = $(this).val();
+        citySelect.html('<option value="">Select...</option>').prop('disabled', true);
+        if (stateCode) {
+            $.ajax({
+                url: `/api/cities/${countryCode}/${stateCode}`, method: 'GET',
+                success: function(cities) {
+                    cities.forEach(c => citySelect.append(new Option(c.name, c.name)));
+                    citySelect.prop('disabled', false);
+                }
+            });
+        }
+    });
+
+    function validateField(input, condition, errorMessage) {
+        if (condition) {
+            input.removeClass('is-invalid').addClass('is-valid');
+            return true;
+        } else {
+            input.removeClass('is-valid').addClass('is-invalid');
+            input.next('.invalid-feedback').text(errorMessage);
+            return false;
+        }
+    }
+
+    function validateForm() {
+        let isValid = true;
+        isValid = validateField($('#full_name'), $('#full_name').val().trim().length >= 2, 'Please enter your full name.') && isValid;
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        isValid = validateField($('#email'), emailRegex.test($('#email').val()), 'Please enter a valid email address.') && isValid;
+        const password = $('#password').val();
+        isValid = validateField($('#password'), password.length >= 8, 'Password must be at least 8 characters long.') && isValid;
+        isValid = validateField($('#confirm_password'), password === $('#confirm_password').val(), 'Passwords do not match.') && isValid;
+        
+        if (currentRole === 'seller') {
+            isValid = validateField($('#business_name'), $('#business_name').val().trim() !== '', 'Business name is required.') && isValid;
+            isValid = validateField($('#business_phone'), $('#business_phone').val().trim() !== '', 'Business phone is required.') && isValid;
+            isValid = validateField($('#business_address'), $('#business_address').val().trim() !== '', 'Business address is required.') && isValid;
+            isValid = validateField($('#business_country'), countrySelect.val() !== '', 'Required.') && isValid;
+            isValid = validateField($('#business_state'), stateSelect.val() !== '', 'Required.') && isValid;
+            isValid = validateField($('#business_city'), citySelect.val() !== '', 'Required.') && isValid;
+            isValid = validateField($('#business_zip_code'), $('#business_zip_code').val().trim() !== '', 'Required.') && isValid;
+        }
+        return isValid;
+    }
+
+    $('#register-form').submit(function(e) {
+        e.preventDefault();
+        $('#form-message').html('');
+        if (!validateForm()) return;
+        let formData = {
+            role: currentRole, full_name: $('#full_name').val(),
+            email: $('#email').val(), phone: $('#phone').val(), password: $('#password').val()
+        };
+        if (formData.role === 'seller') {
+            formData.business_name = $('#business_name').val();
+            formData.business_phone = $('#business_phone').val();
+            formData.business_address = $('#business_address').val();
+            formData.business_country = $('#business_country option:selected').text();
+            formData.business_state = $('#business_state option:selected').text();
+            formData.business_city = $('#business_city option:selected').text();
+            formData.business_zip_code = $('#business_zip_code').val();
+        }
+        $.ajax({
+            url: "{{ url_for('auth_bp.register') }}",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                $('#form-message').html(`<div class="alert alert-success">${response.message}</div>`);
+                $('#register-form')[0].reset();
+                $('.form-control, .form-select').removeClass('is-valid is-invalid');
+                if (currentRole === 'seller') {
+                    $('#show-buyer-form').click();
+                }
+                setTimeout(function() {
+                    window.location.href = "{{ url_for('auth_bp.login') }}";
+                }, 2000);
+            },
+            error: function(jqXHR) {
+                const errorMessage = jqXHR.responseJSON ? jqXHR.responseJSON.error : 'An unexpected error occurred.';
+                $('#form-message').html(`<div class="alert alert-danger">${errorMessage}</div>`);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Permissions for {{ seller.business_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h2 mb-2">Manage Category Permissions</h1>
+    <p class="mb-4">Seller: <strong>{{ seller.business_name }}</strong> (ID: {{ seller.seller_id }})</p>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Assign Allowed Categories</h6>
+        </div>
+        <div class="card-body">
+            <p>Select the categories in which this seller is allowed to list products. The seller will only see these options when adding a new product.</p>
+            <form id="permissions-form">
+                <div id="categories-container" class="mb-3">
+                    <p><em>Loading categories...</em></p>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('admin_bp.manage_sellers_page') }}" class="btn btn-secondary me-2">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+            <div id="form-message" class="mt-3"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    const sellerId = {{ seller.seller_id }};
+
+    // --- 1. LOAD CATEGORIES AND PERMISSIONS ---
+    function loadPermissions() {
+        $.ajax({
+            url: `/admin/api/seller/${sellerId}/permissions`,
+            method: 'GET',
+            success: function(data) {
+                const container = $('#categories-container');
+                container.empty();
+
+                if (data.all_categories && data.all_categories.length > 0) {
+                    // Create a two-column layout
+                    const midpoint = Math.ceil(data.all_categories.length / 2);
+                    const col1 = data.all_categories.slice(0, midpoint);
+                    const col2 = data.all_categories.slice(midpoint);
+
+                    const row = $('<div class="row"></div>');
+                    const col1Div = $('<div class="col-md-6"></div>');
+                    const col2Div = $('<div class="col-md-6"></div>');
+
+                    col1.forEach(cat => {
+                        const isChecked = data.assigned_ids.includes(cat.category_id);
+                        const checkboxHtml = `
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="${cat.category_id}" id="cat-${cat.category_id}" ${isChecked ? 'checked' : ''}>
+                                <label class="form-check-label" for="cat-${cat.category_id}">
+                                    ${cat.name}
+                                </label>
+                            </div>`;
+                        col1Div.append(checkboxHtml);
+                    });
+
+                     col2.forEach(cat => {
+                        const isChecked = data.assigned_ids.includes(cat.category_id);
+                        const checkboxHtml = `
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="${cat.category_id}" id="cat-${cat.category_id}" ${isChecked ? 'checked' : ''}>
+                                <label class="form-check-label" for="cat-${cat.category_id}">
+                                    ${cat.name}
+                                </label>
+                            </div>`;
+                        col2Div.append(checkboxHtml);
+                    });
+
+                    row.append(col1Div).append(col2Div);
+                    container.append(row);
+
+                } else {
+                    container.html('<p class="text-muted">No categories found in the system. Please add categories first.</p>');
+                }
+            },
+            error: function() {
+                $('#categories-container').html('<p class="text-danger">Error loading category data.</p>');
+            }
+        });
+    }
+
+    // --- 2. HANDLE FORM SUBMISSION ---
+    $('#permissions-form').on('submit', function(e) {
+        e.preventDefault();
+        $('#form-message').html('');
+
+        const selectedCategoryIds = [];
+        $('#categories-container input[type="checkbox"]:checked').each(function() {
+            selectedCategoryIds.push(parseInt($(this).val()));
+        });
+
+        $.ajax({
+            url: `/admin/api/seller/${sellerId}/permissions`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ category_ids: selectedCategoryIds }),
+            success: function(response) {
+                $('#form-message').html(`<div class="alert alert-success">${response.message}</div>`);
+                 setTimeout(() => {
+                    window.location.href = "{{ url_for('admin_bp.manage_sellers_page') }}";
+                }, 1500);
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "An unexpected error occurred.";
+                $('#form-message').html(`<div class="alert alert-danger">${errorMsg}</div>`);
+            }
+        });
+    });
+
+    // Initial load
+    loadPermissions();
+});
+</script>
+{% endblock %}

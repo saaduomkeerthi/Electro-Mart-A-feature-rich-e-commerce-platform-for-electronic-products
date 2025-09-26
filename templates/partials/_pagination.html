@@ -1,0 +1,37 @@
+{# templates/partials/_pagination.html #}
+{# This template receives a 'pagination' object and 'current_filters' #}
+
+{% if pagination.total_pages > 1 %}
+<nav aria-label="Product navigation">
+    <ul class="pagination justify-content-center">
+
+        {# 'Previous' Page Link #}
+        <li class="page-item {% if pagination.current_page == 1 %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('home_bp.search_page', page=pagination.current_page - 1, **current_filters) }}">
+                &laquo;
+            </a>
+        </li>
+
+        {# Page Number Links #}
+        {% for page_num in range(1, pagination.total_pages + 1) %}
+            {% if page_num == pagination.current_page %}
+                <li class="page-item active" aria-current="page">
+                    <span class="page-link">{{ page_num }}</span>
+                </li>
+            {% elif page_num > pagination.current_page - 3 and page_num < pagination.current_page + 3 %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('home_bp.search_page', page=page_num, **current_filters) }}">{{ page_num }}</a>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        {# 'Next' Page Link #}
+        <li class="page-item {% if pagination.current_page == pagination.total_pages %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('home_bp.search_page', page=pagination.current_page + 1, **current_filters) }}">
+                &raquo;
+            </a>
+        </li>
+
+    </ul>
+</nav>
+{% endif %}

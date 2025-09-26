@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}My Wishlist - ElectroMart{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-9">
+            <h1 class="mb-4">My Wishlist</h1>
+        </div>
+        <div class="col-md-3 text-md-end">
+            <div id="action-message-area" style="min-height: 40px;"></div>
+        </div>
+    </div>
+    <div id="wishlist-items-container">
+        <!-- Wishlist items will be loaded here by AJAX -->
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    const messageArea = $('#action-message-area');
+    const container = $('#wishlist-items-container');
+
+    function showMessage(message, type = 'success') {
+        const alertHtml = `<div class="alert alert-${type} alert-dismissible fade show py-2" role="alert">${message}</div>`;
+        messageArea.html(alertHtml);
+        setTimeout(() => {
+            messageArea.find('.alert').fadeOut(500, function() { $(this).remove(); });
+        }, 3000);
+    }
+
+    // --- NEW HELPER FUNCTION ---
+    // This function specifically renders the empty state to avoid code duplication.
+    function renderEmptyState() {
+        container.html(`
+            <div class="card">
+                <div class="card-body text-center">
+                    <p class="lead">Your wishlist is empty.</p>
+                    <a href="{{ url_for('home_bp.home_page') }}" class="btn btn-primary">Discover Products</a>
+                </div>
+            </div>
+        `);
+    }
+
+    function renderWishlist(items, cartProductIds) {
+        container.empty();
+
+        if (!items || items.length === 0) {
+            renderEmptyState(); // Use the new helper function
+            return;
+        }
+
+        items.forEach(item => {
+            const imageUrl = item.image_url ? `/${item.image_url}` : 'https://via.placeholder.com/150';
+            const stockBadge = item.stock_quantity > 0 
+                ? '<span class="badge bg-success">In Stock</span>' 
+                : '<span class="badge bg-danger">Out of Stock</span>';
+            
+            let cartButtonHtml;
+            if (cartProductIds.has(item.product_id)) {
+                cartButtonHtml = `<a href="{{ url_for('buyer_bp.cart_page') }}" class="btn btn-sm btn-success">In Cart</a>`;
+            } else {
+                cartButtonHtml = item.stock_quantity > 0
+                    ? `<button class="btn btn-sm btn-primary add-to-cart-btn" data-product-id="${item.product_id}">Add to Cart</button>`
+                    : `<button class="btn btn-sm btn-secondary" disabled>Out of Stock</button>`;
+            }
+
+            const itemHtml = `
+                <div class="card mb-3 wishlist-item" id="wishlist-item-${item.product_id}">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-2"><img src="${imageUrl}" class="img-fluid rounded" alt="${item.name}"></div>
+                            <div class="col-md-4">
+                                <h5><a href="/product/${item.product_id}" class="text-decoration-none">${item.name}</a></h5>
+                                <p class="text-muted mb-1">${stockBadge}</p>
+                            </div>
+                            <div class="col-md-2 text-md-center"><p class="fs-5 fw-bold mb-0">$${item.price.toFixed(2)}</p></div>
+                            <div class="col-md-4 text-md-end">
+                                ${cartButtonHtml}
+                                <button class="btn btn-sm btn-outline-danger remove-wishlist-btn ms-2" data-product-id="${item.product_id}"><i class="fas fa-trash-alt"></i> Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.append(itemHtml);
+        });
+    }
+
+    // The initial load function remains the same.
+    function loadWishlist() {
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_get_wishlist') }}",
+            method: 'GET',
+            success: function(wishlistItems) {
+                if (!wishlistItems || wishlistItems.length === 0) {
+                    renderWishlist([], new Set());
+                    return;
+                }
+                const productIds = wishlistItems.map(item => item.product_id);
+                $.ajax({
+                    url: "{{ url_for('buyer_bp.api_get_cart_status') }}",
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ product_ids: productIds }),
+                    success: function(cartStatus) {
+                        const cartProductIds = new Set(Object.keys(cartStatus).filter(pid => cartStatus[pid]).map(Number));
+                        renderWishlist(wishlistItems, cartProductIds);
+                    },
+                    error: () => renderWishlist(wishlistItems, new Set())
+                });
+            },
+            error: () => container.html('<p class="alert alert-danger">Could not load your wishlist. Please try again.</p>')
+        });
+    }
+
+    // --- Event Listeners with Corrected Logic ---
+
+    // Remove from Wishlist
+    container.on('click', '.remove-wishlist-btn', function() {
+        const productId = $(this).data('product-id');
+        const wishlistItemCard = $(`#wishlist-item-${productId}`);
+
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_toggle_wishlist') }}",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ product_id: productId }),
+            success: function() {
+                wishlistItemCard.fadeOut(500, function() { 
+                    $(this).remove();
+                    // --- CORRECTION ---
+                    // Instead of reloading, we check if it was the last item and render the empty state directly.
+                    if ($('.wishlist-item').length === 0) {
+                        renderEmptyState();
+                    }
+                });
+                showMessage('Item removed from wishlist.', 'info');
+            }
+        });
+    });
+
+    // Add to Cart (and remove from wishlist)
+    container.on('click', '.add-to-cart-btn', function() {
+        const button = $(this);
+        const productId = button.data('product-id');
+        const wishlistItemCard = $(`#wishlist-item-${productId}`);
+
+        button.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Adding...');
+
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_add_to_cart') }}",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ product_id: productId, quantity: 1 }),
+            success: function() {
+                updateCartCount();
+                showMessage('Item added to cart!');
+                $.ajax({
+                    url: "{{ url_for('buyer_bp.api_toggle_wishlist') }}",
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ product_id: productId }),
+                    success: function() {
+                        wishlistItemCard.fadeOut(500, function() {
+                            $(this).remove();
+                            // --- CORRECTION ---
+                            // Same fix as above: check if it was the last item and render the empty state.
+                            if ($('.wishlist-item').length === 0) {
+                                renderEmptyState();
+                            }
+                        });
+                    }
+                });
+            },
+            error: function() {
+                showMessage('Could not add item to cart.', 'danger');
+                button.prop('disabled', false).text('Add to Cart');
+            }
+        });
+    });
+
+    // Initial Load
+    loadWishlist();
+});
+</script>
+{% endblock %}

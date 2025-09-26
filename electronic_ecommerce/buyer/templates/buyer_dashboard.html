@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}My Dashboard - ElectroMart{% endblock %}
+
+{% block head %}
+{{ super() }}
+<!-- Add Chart.js for data visualization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .stat-card {
+        background-color: #ffffff;
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: 1px solid #e2e8f0;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+    }
+    .stat-card .icon-container {
+        width: 60px; height: 60px; border-radius: 50%; display: flex;
+        align-items: center; justify-content: center;
+        margin-right: 1.5rem; font-size: 1.75rem;
+    }
+    .stat-card .stat-info h5 {
+        margin-bottom: 0.25rem; color: #6c757d; font-size: 0.9rem;
+        font-weight: 500; text-transform: uppercase;
+    }
+    .stat-card .stat-info h2 { font-weight: 700; color: #2d3748; }
+    
+    .icon-total { background-color: rgba(67, 97, 238, 0.1); color: #4361ee; }
+    .icon-progress { background-color: rgba(255, 193, 7, 0.1); color: #ffc107; }
+    .icon-completed { background-color: rgba(25, 135, 84, 0.1); color: #198754; }
+    .icon-spent { background-color: rgba(13, 202, 240, 0.1); color: #0dcaf0; }
+
+    .card .table th { font-weight: 600; color: #4a5568; }
+    .card-header h4 { font-weight: 600; font-size: 1.2rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 fw-bold mb-1">My Dashboard</h1>
+        <p class="mb-0 text-muted">Welcome back, {{ session['full_name'].split()[0] }}! Here's a summary of your activity.</p>
+    </div>
+    <a href="{{ url_for('home_bp.home_page') }}" class="btn btn-primary">
+        <i class="fas fa-store me-2"></i>Continue Shopping
+    </a>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-4 mb-4" id="stats-cards">
+    <div class="col-xl-3 col-md-6"><div class="stat-card h-100"><div class="spinner-border text-primary"></div></div></div>
+    <div class="col-xl-3 col-md-6"><div class="stat-card h-100"><div class="spinner-border text-primary"></div></div></div>
+    <div class="col-xl-3 col-md-6"><div class="stat-card h-100"><div class="spinner-border text-primary"></div></div></div>
+    <div class="col-xl-3 col-md-6"><div class="stat-card h-100"><div class="spinner-border text-primary"></div></div></div>
+</div>
+
+<!-- Action Message Placeholder -->
+<div id="action-message" class="mb-3"></div>
+
+<!-- ================================================================== -->
+<!-- START: UPGRADED CHARTS SECTION -->
+<!-- ================================================================== -->
+<div class="row g-4 mb-4">
+    <!-- Spending by Category Donut Chart (Existing) -->
+    <div class="col-lg-4 col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-white py-3">
+                <h4 class="mb-0"><i class="fas fa-pie-chart me-2 text-primary"></i>Spending by Category</h4>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center p-3">
+                <canvas id="categorySpendingChart" style="max-height: 280px;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Status Breakdown Pie Chart (NEW) -->
+    <div class="col-lg-4 col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-white py-3">
+                <h4 class="mb-0"><i class="fas fa-tasks me-2 text-primary"></i>Order Status</h4>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center p-3">
+                <canvas id="orderStatusChart" style="max-height: 280px;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Spending Bar Chart (Existing) -->
+    <div class="col-lg-4 col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-white py-3">
+                <h4 class="mb-0"><i class="fas fa-chart-bar me-2 text-primary"></i>Monthly Spending</h4>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center p-3">
+                <canvas id="monthlySpendingChart" style="max-height: 280px;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top 5 Brands Horizontal Bar Chart (NEW) -->
+    <div class="col-lg-12">
+        <div class="card h-100">
+            <div class="card-header bg-white py-3">
+                <h4 class="mb-0"><i class="fas fa-tags me-2 text-primary"></i>Your Top Brands by Spending</h4>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center p-3">
+                <canvas id="topBrandsChart" style="max-height: 320px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- ================================================================== -->
+<!-- END: UPGRADED CHARTS SECTION -->
+<!-- ================================================================== -->
+
+
+<!-- Recent Orders Section -->
+<div class="card">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h4 class="mb-0"><i class="fas fa-history me-2 text-primary"></i>Recent Orders</h4>
+        <a href="{{ url_for('buyer_bp.order_history') }}" class="btn btn-sm btn-outline-secondary">View All Orders</a>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr><th class="ps-4">Order #</th><th>Date</th><th>Seller</th><th>Total</th><th>Status</th><th class="pe-4">Action</th></tr>
+                </thead>
+                <tbody id="recent-orders-table">
+                    <tr><td colspan="6" class="text-center p-5"><div class="spinner-border text-primary"></div></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Cancellation Modal (Unchanged) -->
+<div class="modal fade" id="cancelOrderModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Request Order Cancellation</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p>You are requesting to cancel order <strong id="modal-order-number"></strong>. Please provide a reason.</p><form id="cancel-order-form"><input type="hidden" id="modal-order-id"><input type="hidden" id="modal-seller-id"><div class="mb-3"><label for="cancel-reason" class="form-label">Reason</label><select class="form-select" id="cancel-reason" required><option value="" selected disabled>-- Select a reason --</option><option value="ordered_by_mistake">Ordered by mistake</option><option value="item_not_needed_anymore">Item not needed anymore</option><option value="found_better_price">Found a better price</option><option value="other">Other</option></select></div><div class="mb-3"><label for="cancel-comments" class="form-label">Comments (Optional)</label><textarea class="form-control" id="cancel-comments" rows="3"></textarea></div><div id="cancel-form-message"></div></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button type="button" class="btn btn-danger" id="submit-cancel-request-btn">Submit Request</button></div></div></div></div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    const cancelModal = new bootstrap.Modal(document.getElementById('cancelOrderModal'));
+    const actionMessageDiv = $('#action-message');
+
+    // --- UTILITY ---
+    function formatNumber(num) { return new Intl.NumberFormat('en-US').format(num); }
+    function getStatusBadgeClass(status) { const map={'pending':'bg-secondary-subtle text-secondary-emphasis','confirmed':'bg-info-subtle text-info-emphasis','processing':'bg-primary-subtle text-primary-emphasis','shipped':'bg-warning-subtle text-warning-emphasis','delivered':'bg-success-subtle text-success-emphasis','cancelled':'bg-danger-subtle text-danger-emphasis'}; return map[status]||'bg-dark-subtle'; }
+
+    // --- DATA LOADERS ---
+    function loadStats() {
+        $.get("{{ url_for('buyer_bp.api_stats') }}", function(stats) {
+            $('#stats-cards').html(`
+                <div class="col-xl-3 col-md-6"><div class="stat-card h-100"><div class="icon-container icon-total"><i class="fas fa-box"></i></div><div class="stat-info"><h5>Total Orders</h5><h2>${formatNumber(stats.total_orders)}</h2></div></div></div>
+                <div class="col-xl-3 col-md-6"><div class="stat-card h-100"><div class="icon-container icon-progress"><i class="fas fa-shipping-fast"></i></div><div class="stat-info"><h5>In Progress</h5><h2>${formatNumber(stats.pending_orders)}</h2></div></div></div>
+                <div class="col-xl-3 col-md-6"><div class="stat-card h-100"><div class="icon-container icon-completed"><i class="fas fa-check-circle"></i></div><div class="stat-info"><h5>Completed</h5><h2>${formatNumber(stats.completed_orders)}</h2></div></div></div>
+                <div class="col-xl-3 col-md-6"><div class="stat-card h-100"><div class="icon-container icon-spent"><i class="fas fa-wallet"></i></div><div class="stat-info"><h5>Total Spent</h5><h2>$${parseFloat(stats.total_spent).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</h2></div></div></div>
+            `);
+        }).fail(() => $('#stats-cards').html('<div class="col-12"><p class="text-danger text-center">Could not load dashboard stats.</p></div>'));
+    }
+
+    function loadRecentOrders() {
+        $.get("{{ url_for('buyer_bp.api_recent_orders') }}", function(orders) {
+            const tableBody = $('#recent-orders-table');
+            tableBody.empty();
+            if (orders.length === 0) { tableBody.html('<tr><td colspan="6" class="text-center p-5">You have not placed any orders yet.</td></tr>'); return; }
+            orders.forEach(function(order) {
+                const statusBadge = `<span class="badge rounded-pill ${getStatusBadgeClass(order.status)}">${order.status}</span>`;
+                const detailsUrl = `{{ url_for('buyer_bp.order_details_page', order_id=0) }}`.replace('0', order.order_id);
+                let actionButtons = `<a href="${detailsUrl}" class="btn btn-sm btn-outline-secondary">View</a>`;
+                if(['confirmed','processing'].includes(order.status) && order.cancellation_status !== 'pending') {
+                    actionButtons += `<button class="btn btn-sm btn-outline-danger ms-2 cancel-request-btn" data-order-id="${order.order_id}" data-order-number="${order.order_number}" data-seller-id="${order.seller_id}">Cancel</button>`;
+                } else if (order.cancellation_status === 'pending') {
+                    actionButtons += `<span class="ms-2 text-muted fst-italic">Pending...</span>`;
+                }
+                tableBody.append(`<tr><td class="ps-4"><strong>${order.order_number}</strong></td><td>${order.order_date}</td><td>${order.seller_name}</td><td>$${parseFloat(order.total_amount).toFixed(2)}</td><td>${statusBadge}</td><td class="pe-4">${actionButtons}</td></tr>`);
+            });
+        });
+    }
+
+    // --- START: CHART RENDERING FUNCTIONS (ALL OF THEM) ---
+
+    // Donut Chart
+    function renderCategorySpendingChart() {
+        $.get("{{ url_for('buyer_bp.api_spending_by_category') }}", function(data) {
+            const container = $('#categorySpendingChart').parent();
+            if(data.length === 0) { container.html('<div class="text-center text-muted p-5 my-auto"><p>Your spending by category will appear here.</p></div>'); return; }
+            new Chart(container.find('canvas'), {
+                type: 'doughnut', data: { labels: data.map(i => i.category_name), datasets: [{ data: data.map(i => i.total_spent), backgroundColor: ['#4361ee', '#7209b7', '#f72585', '#38b000', '#ffbe0b'], borderWidth: 2 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            });
+        });
+    }
+
+    // Bar Chart
+    function renderMonthlySpendingChart() {
+        $.get("{{ url_for('buyer_bp.api_monthly_spending') }}", function(data) {
+            const container = $('#monthlySpendingChart').parent();
+            if(data.length === 0) { container.html('<div class="text-center text-muted p-5 my-auto"><p>Your monthly spending will appear here.</p></div>'); return; }
+            new Chart(container.find('canvas'), {
+                type: 'bar', data: { labels: data.map(i => i.month), datasets: [{ label: 'Total Spent ($)', data: data.map(i => i.total_spent), backgroundColor: 'rgba(67, 97, 238, 0.8)', borderRadius: 5 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } }, x: { grid: { display: false } } } }
+            });
+        });
+    }
+
+    // NEW Pie Chart
+    function renderOrderStatusChart() {
+        $.get("{{ url_for('buyer_bp.api_order_status_distribution') }}", function(data) {
+            const container = $('#orderStatusChart').parent();
+            if(data.length === 0) { container.html('<div class="text-center text-muted p-5 my-auto"><p>Your order statuses will appear here.</p></div>'); return; }
+            new Chart(container.find('canvas'), {
+                type: 'pie', data: { labels: data.map(i => i.status_group), datasets: [{ data: data.map(i => i.order_count), backgroundColor: ['#ffc107', '#198754', '#0dcaf0'], borderWidth: 2 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            });
+        });
+    }
+    
+    // NEW Horizontal Bar Chart
+    function renderTopBrandsChart() {
+        $.get("{{ url_for('buyer_bp.api_top_brands') }}", function(data) {
+            const container = $('#topBrandsChart').parent();
+            if(data.length === 0) { container.html('<div class="text-center text-muted p-5 my-auto"><p>Your favorite brands will appear here.</p></div>'); return; }
+            new Chart(container.find('canvas'), {
+                type: 'bar', data: { labels: data.map(i => i.brand), datasets: [{ label: 'Total Spent ($)', data: data.map(i => i.total_spent), backgroundColor: ['#4361ee', '#7209b7', '#f72585', '#38b000', '#ffbe0b'], borderRadius: 5 }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { callback: v => '$' + v } }, y: { grid: { display: false } } } }
+            });
+        });
+    }
+    // --- END: CHART RENDERING FUNCTIONS ---
+
+
+    // --- EVENT LISTENERS ---
+    $('#recent-orders-table').on('click', '.cancel-request-btn', function() {
+        const orderId=$(this).data('order-id'), orderNumber=$(this).data('order-number'), sellerId=$(this).data('seller-id');
+        $('#modal-order-id').val(orderId); $('#modal-seller-id').val(sellerId); $('#modal-order-number').text(orderNumber);
+        $('#cancel-order-form')[0].reset(); $('#cancel-form-message').html('');
+        cancelModal.show();
+    });
+
+    $('#submit-cancel-request-btn').on('click', function() {
+        const formMessageDiv=$('#cancel-form-message'), reason=$('#cancel-reason').val();
+        if(!reason){formMessageDiv.html('<div class="alert alert-danger">Please select a reason.</div>'); return;}
+        const requestData={order_id:$('#modal-order-id').val(),seller_id:$('#modal-seller-id').val(),reason:reason,comments:$('#cancel-comments').val()};
+        $(this).prop('disabled',true).html('<span class="spinner-border spinner-border-sm"></span> Submitting...');
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_request_cancellation') }}", method: 'POST', contentType: 'application/json', data: JSON.stringify(requestData),
+            success: (response) => {
+                cancelModal.hide();
+                actionMessageDiv.html(`<div class="alert alert-success alert-dismissible fade show">${response.message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`);
+                loadRecentOrders(); loadStats(); renderOrderStatusChart();
+            },
+            error: (xhr) => { formMessageDiv.html(`<div class="alert alert-danger">${xhr.responseJSON?xhr.responseJSON.error:"An error occurred."}</div>`); },
+            complete: () => { $('#submit-cancel-request-btn').prop('disabled', false).text('Submit Request'); }
+        });
+    });
+    
+    // --- INITIAL PAGE LOAD ---
+    loadStats();
+    loadRecentOrders();
+    renderCategorySpendingChart();
+    renderMonthlySpendingChart();
+    renderOrderStatusChart();
+    renderTopBrandsChart();
+});
+</script>
+{% endblock %}

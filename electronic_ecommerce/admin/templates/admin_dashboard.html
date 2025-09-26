@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block head %}
+{{ super() }}
+<!-- Add Chart.js for data visualization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    /* Custom styles for the Admin Dashboard stat cards and tables */
+    .stat-card {
+        background-color: var(--card-bg);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--box-shadow);
+    }
+    .stat-card .icon-container {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1.5rem;
+        font-size: 1.75rem;
+    }
+    .stat-card .stat-info h5 {
+        margin-bottom: 0.25rem;
+        color: #6c757d;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    .stat-card .stat-info h2 {
+        font-weight: 700;
+        color: #2d3748;
+    }
+
+    /* Color variations for icons */
+    .icon-sales { background-color: rgba(25, 135, 84, 0.1); color: #198754; }
+    .icon-buyers { background-color: rgba(67, 97, 238, 0.1); color: var(--primary-color); }
+    .icon-sellers { background-color: rgba(255, 193, 7, 0.1); color: #ffc107; }
+    .icon-orders { background-color: rgba(108, 117, 125, 0.1); color: #6c757d; }
+    .icon-cancellations { background-color: rgba(220, 53, 69, 0.1); color: #dc3545; }
+    /* This is our important actionable metric, so we give it a distinct color */
+    .icon-pending-sellers { background-color: rgba(13, 202, 240, 0.1); color: #0dcaf0; }
+
+
+    .card .table { margin-bottom: 0; }
+    .card .table th { font-weight: 600; color: #4a5568; border-bottom-width: 1px; }
+    .card-header h4 { font-weight: 600; font-size: 1.2rem; }
+    
+    .empty-state-card .card-body {
+        min-height: 200px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 fw-bold mb-1">Admin Dashboard</h1>
+        <p class="mb-0 text-muted">Welcome back, {{ session['full_name'] }}! Here's a real-time overview of your platform.</p>
+    </div>
+</div>
+
+<!-- Stat Cards Section (Including 🥈 Pending Sellers) -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-4 col-md-6">
+        <div class="stat-card h-100">
+            <div class="icon-container icon-sales"> <i class="fas fa-dollar-sign"></i> </div>
+            <div class="stat-info"> <h5>Total Sales Amount</h5> <h2 id="total-sales-stat">...</h2> </div>
+        </div>
+    </div>
+    <div class="col-xl-4 col-md-6">
+        <div class="stat-card h-100">
+            <div class="icon-container icon-buyers"> <i class="fas fa-user"></i> </div>
+            <div class="stat-info"> <h5>Total Buyers</h5> <h2 id="total-buyers-stat">...</h2> </div>
+        </div>
+    </div>
+    <!-- 🥈 KPI Card: Sellers Awaiting Approval (Made clickable) -->
+    <div class="col-xl-4 col-md-6">
+        <a href="{{ url_for('admin_bp.manage_sellers_page') }}" class="text-decoration-none">
+            <div class="stat-card h-100">
+                <div class="icon-container icon-pending-sellers"> <i class="fas fa-user-clock"></i> </div>
+                <div class="stat-info"> <h5>Pending Sellers</h5> <h2 id="pending-sellers-stat">...</h2> </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-xl-4 col-md-6">
+        <div class="stat-card h-100">
+            <div class="icon-container icon-sellers"> <i class="fas fa-store"></i> </div>
+            <div class="stat-info"> <h5>Total Sellers</h5> <h2 id="total-sellers-stat">...</h2> </div>
+        </div>
+    </div>
+    <div class="col-xl-4 col-md-6">
+        <div class="stat-card h-100">
+            <div class="icon-container icon-orders"> <i class="fas fa-shopping-cart"></i> </div>
+            <div class="stat-info"> <h5>Orders Today</h5> <h2 id="orders-today-stat">...</h2> </div>
+        </div>
+    </div>
+    <div class="col-xl-4 col-md-6">
+        <a href="{{ url_for('admin_bp.manage_cancellations_page') }}" class="text-decoration-none">
+            <div class="stat-card h-100">
+                <div class="icon-container icon-cancellations"> <i class="fas fa-ban"></i> </div>
+                <div class="stat-info"> <h5>Pending Cancellations</h5> <h2 id="pending-cancellations-stat">...</h2> </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- START: NEW SECTION FOR CHARTS -->
+<div class="row g-4 mb-4">
+    <!-- 🥇 Sales Revenue Line Chart -->
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header bg-white py-3">
+                <h4 class="mb-0"><i class="fas fa-chart-line me-2 text-primary"></i>Sales Revenue Over Time</h4>
+            </div>
+            <div class="card-body p-3">
+                <canvas id="salesChart" style="min-height: 300px;"></canvas>
+            </div>
+        </div>
+    </div>
+    <!-- 🥉 Top 5 Performing Categories Bar Chart -->
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header bg-white py-3">
+                <h4 class="mb-0"><i class="fas fa-sitemap me-2 text-primary"></i>Top Categories</h4>
+            </div>
+            <div class="card-body p-3">
+                <canvas id="categoryChart" style="min-height: 300px;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- END: NEW SECTION FOR CHARTS -->
+
+
+<!-- Tables for Recent Activity (This section is from your original template) -->
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div id="recent-orders-container" class="card h-100" style="display: none;">
+            <div class="card-header bg-white py-3">
+                <h4 class="mb-0"><i class="fas fa-list-alt me-2 text-primary"></i>Recent Orders</h4>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light"><tr><th class="ps-4">Order #</th><th>Buyer</th><th>Total</th><th>Status</th></tr></thead>
+                        <tbody id="recent-orders-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div id="no-recent-orders" class="card empty-state-card h-100" style="display: none;">
+            <div class="card-body">
+                <i class="fas fa-inbox fa-4x text-light mb-3"></i>
+                <h5 class="card-title">No Recent Orders</h5>
+                <p class="card-text text-muted">New orders will appear here as they are placed.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div id="new-sellers-container" class="card h-100" style="display: none;">
+            <div class="card-header bg-white py-3">
+                <h4 class="mb-0"><i class="fas fa-user-plus me-2 text-primary"></i>New Seller Requests</h4>
+            </div>
+            <div class="card-body p-0">
+                 <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light"><tr><th class="ps-4">Business Name</th><th>Date Joined</th></tr></thead>
+                        <tbody id="new-sellers-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div id="no-new-sellers" class="card empty-state-card h-100" style="display: none;">
+            <div class="card-body">
+                <i class="fas fa-user-check fa-4x text-light mb-3"></i>
+                <h5 class="card-title">All Caught Up!</h5>
+                <p class="card-text text-muted">No new seller requests are pending approval.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }} <!-- This line is important if your base.html has global scripts -->
+<script>
+$(document).ready(function() {
+
+    // Helper functions from your template
+    function formatNumber(num) { return new Intl.NumberFormat('en-US').format(num); }
+    function formatCurrency(num) { return '$' + parseFloat(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+    // This function fetches data for all the stat cards at the top
+    function updateStats() {
+        $.ajax({
+            url: "{{ url_for('admin_bp.api_stats') }}", // Corrected URL using url_for
+            method: 'GET',
+            success: function(data) {
+                $('#total-sales-stat').text(formatCurrency(data.total_sales));
+                $('#total-buyers-stat').text(formatNumber(data.total_buyers || 0));
+                $('#total-sellers-stat').text(formatNumber(data.total_sellers || 0));
+                $('#pending-sellers-stat').text(formatNumber(data.pending_sellers || 0));
+                $('#orders-today-stat').text(formatNumber(data.orders_today || 0));
+                $('#pending-cancellations-stat').text(formatNumber(data.pending_cancellations || 0));
+            },
+            error: function() { $('.stat-info h2').text('Error'); }
+        });
+    }
+    
+    // --- START: NEW FUNCTIONS TO RENDER CHARTS ---
+    
+    // Renders the 🥇 Sales Revenue Line Chart
+    function renderSalesChart() {
+        $.ajax({
+            url: "{{ url_for('admin_bp.api_sales_over_time') }}",
+            method: 'GET',
+            success: function(data) {
+                const labels = data.map(item => item.month);
+                const salesData = data.map(item => item.monthly_sales);
+                const ctx = document.getElementById('salesChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Sales ($)',
+                            data: salesData,
+                            borderColor: 'rgba(67, 97, 238, 1)',
+                            backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                });
+            }
+        });
+    }
+
+    // Renders the 🥉 Top 5 Categories Bar Chart
+    function renderCategoryChart() {
+        $.ajax({
+            url: "{{ url_for('admin_bp.api_top_categories') }}",
+            method: 'GET',
+            success: function(data) {
+                const labels = data.map(item => item.category_name);
+                const salesData = data.map(item => item.total_sales);
+                const ctx = document.getElementById('categoryChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Total Sales ($)',
+                            data: salesData,
+                            backgroundColor: ['#4361ee', '#7209b7', '#f72585', '#38b000', '#ffbe0b']
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // Makes the chart horizontal
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { beginAtZero: true, ticks: { callback: value => '$' + value } } }
+                    }
+                });
+            }
+        });
+    }
+    
+    // --- END: NEW FUNCTIONS TO RENDER CHARTS ---
+
+    // The rest of this is your original, working code for the tables. No changes needed.
+    function loadRecentOrders() {
+        const tableContainer = $('#recent-orders-container'), emptyStateContainer = $('#no-recent-orders'), tableBody = $('#recent-orders-table');
+        $.ajax({
+            url: "{{ url_for('admin_bp.api_recent_orders') }}",
+            method: 'GET',
+            success: function(orders) {
+                tableBody.empty();
+                if (orders.length === 0) { tableContainer.hide(); emptyStateContainer.show(); } 
+                else {
+                    emptyStateContainer.hide(); tableContainer.show();
+                    orders.forEach(function(order) {
+                        let statusBadgeClass = 'bg-secondary-subtle text-secondary-emphasis';
+                        if(order.status === 'delivered') statusBadgeClass = 'bg-success-subtle text-success-emphasis';
+                        if(order.status === 'shipped') statusBadgeClass = 'bg-info-subtle text-info-emphasis';
+                        if(order.status === 'processing') statusBadgeClass = 'bg-primary-subtle text-primary-emphasis';
+                        if(order.status === 'cancelled') statusBadgeClass = 'bg-danger-subtle text-danger-emphasis';
+                        if(order.status === 'confirmed') statusBadgeClass = 'bg-warning-subtle text-warning-emphasis';
+                        let statusText = order.status.charAt(0).toUpperCase() + order.status.slice(1);
+                        let statusBadge = `<span class="badge rounded-pill ${statusBadgeClass}">${statusText}</span>`;
+                        tableBody.append(`<tr><td class="ps-4"><strong>${order.order_number}</strong></td><td>${order.buyer_name}</td><td>${formatCurrency(order.total_amount)}</td><td>${statusBadge}</td></tr>`);
+                    });
+                }
+            },
+            error: function() {
+                 emptyStateContainer.show(); tableContainer.hide();
+                 emptyStateContainer.find('.card-title').text('Error Loading Orders');
+                 emptyStateContainer.find('.card-text').text('Could not fetch data from the server.');
+            }
+        });
+    }
+
+    function loadNewSellers() {
+        const tableContainer = $('#new-sellers-container'), emptyStateContainer = $('#no-new-sellers'), tableBody = $('#new-sellers-table');
+        $.ajax({
+            url: "{{ url_for('admin_bp.api_new_sellers') }}",
+            method: 'GET',
+            success: function(sellers) {
+                tableBody.empty();
+                if (sellers.length === 0) { tableContainer.hide(); emptyStateContainer.show(); } 
+                else {
+                    emptyStateContainer.hide(); tableContainer.show();
+                    sellers.forEach(function(seller) { tableBody.append(`<tr><td class="ps-4">${seller.business_name}</td><td>${seller.created_at}</td></tr>`); });
+                }
+            },
+            error: function() {
+                emptyStateContainer.show(); tableContainer.hide();
+                emptyStateContainer.find('.card-title').text('Error Loading Sellers');
+                emptyStateContainer.find('.card-text').text('Could not fetch data from the server.');
+            }
+        });
+    }
+
+    // --- Initial data load for the entire dashboard ---
+    updateStats();
+    loadRecentOrders();
+    loadNewSellers();
+    renderSalesChart();      // <-- Call the new chart function
+    renderCategoryChart();   // <-- Call the new chart function
+});
+</script>
+{% endblock %}

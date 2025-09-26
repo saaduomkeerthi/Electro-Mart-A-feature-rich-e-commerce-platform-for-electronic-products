@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Add New Category{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2">Create a New Category</h1>
+            <p class="mb-0 text-muted">Add a main category and its subcategories to the store's master list.</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin_bp.manage_categories_page') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-sitemap me-2"></i>Manage Existing Categories
+            </a>
+        </div>
+    </div>
+
+    <!-- This div will show success or error messages from our form submission -->
+    <div id="form-message"></div>
+
+    <form id="add-category-form">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-plus-circle me-2"></i>New Category Details</h5>
+            </div>
+            <div class="card-body">
+                <!-- Input field for the Main Category -->
+                <div class="mb-3">
+                    <label for="new-main-category-name" class="form-label"><b>Main Category Name</b></label>
+                    <input type="text" id="new-main-category-name" class="form-control form-control-lg" placeholder="e.g., Gaming & Esports" required>
+                </div>
+                
+                <hr>
+                
+                <!-- This is where we will dynamically add fields for subcategories -->
+                <div class="mb-3">
+                    <label class="form-label"><b>Subcategories</b> (Optional)</label>
+                    <div id="subcategory-inputs">
+                        <!-- The first subcategory input field -->
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control subcategory-name-input" placeholder="e.g., Gaming Consoles">
+                        </div>
+                    </div>
+                    <!-- The "+" button to add more subcategory fields -->
+                    <button type="button" id="add-more-sub-btn" class="btn btn-sm btn-outline-secondary w-100 mt-2">
+                        <i class="fas fa-plus"></i> Add Another Subcategory Field
+                    </button>
+                </div>
+            </div>
+            <div class="card-footer text-end">
+                <button type="submit" class="btn btn-primary btn-lg">Save New Category</button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    const formMessageDiv = $('#form-message');
+
+    // --- LOGIC FOR THE "+" BUTTON ---
+    // (This part is unchanged)
+    $('#add-more-sub-btn').on('click', function() {
+        const newFieldHtml = `
+            <div class="input-group mb-2">
+                <input type="text" class="form-control subcategory-name-input" placeholder="Another subcategory...">
+                <button class="btn btn-outline-danger remove-sub-input" type="button">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>`;
+        $('#subcategory-inputs').append(newFieldHtml);
+    });
+    
+    // --- LOGIC FOR THE "REMOVE" BUTTON ---
+    // (This part is unchanged)
+    $('#subcategory-inputs').on('click', '.remove-sub-input', function() {
+        $(this).closest('.input-group').remove();
+    });
+
+    // --- LOGIC FOR FORM SUBMISSION using AJAX ---
+    $('#add-category-form').on('submit', function(e) {
+        e.preventDefault();
+        
+        formMessageDiv.html('');
+
+        const mainCategoryName = $('#new-main-category-name').val().trim();
+
+        const subCategoryNames = $('.subcategory-name-input').map(function() {
+            return $(this).val().trim();
+        }).get().filter(name => name);
+
+        $.ajax({
+            url: "{{ url_for('admin_bp.api_add_category') }}",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                main_category_name: mainCategoryName,
+                sub_category_names: subCategoryNames
+            }),
+
+            // --- THIS IS THE ONLY MODIFIED PART ---
+            success: function(response) {
+                // On success, redirect to the manage categories page.
+                // The flash message from the backend will appear there.
+                window.location.href = "{{ url_for('admin_bp.manage_categories_page') }}";
+            },
+            // --- END OF MODIFICATION ---
+
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "An unknown error occurred.";
+                formMessageDiv.html(`<div class="alert alert-danger">${errorMsg}</div>`);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

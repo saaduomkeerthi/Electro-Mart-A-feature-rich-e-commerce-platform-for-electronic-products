@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Add New Discount - Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Create New Discount</h1>
+    <a href="{{ url_for('admin_bp.manage_discounts_page') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> Back to All Discounts
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <form id="add-discount-form">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="code" class="form-label">Discount Code <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="code" name="code" required style="text-transform:uppercase">
+                            <div class="form-text">Customers will use this code at checkout. E.g., SUMMER20.</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="discount_type" class="form-label">Discount Type <span class="text-danger">*</span></label>
+                            <select class="form-select" id="discount_type" name="discount_type" required>
+                                <option value="percentage">Percentage (%)</option>
+                                <option value="fixed">Fixed Amount ($)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="value" class="form-label">Value <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="value" name="value" step="0.01" min="0" required>
+                        <div class="form-text">Enter percentage (e.g., 10 for 10%) or a fixed dollar amount (e.g., 25 for $25).</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="min_purchase_amount" class="form-label">Minimum Purchase Amount ($)</label>
+                        <input type="number" class="form-control" id="min_purchase_amount" name="min_purchase_amount" step="0.01" min="0" placeholder="0.00">
+                        <div class="form-text">Leave at 0 or empty for no minimum purchase requirement.</div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="start_date" class="form-label">Start Date (Optional)</label>
+                            <input type="datetime-local" class="form-control" id="start_date" name="start_date">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="end_date" class="form-label">End Date (Optional)</label>
+                            <input type="datetime-local" class="form-control" id="end_date" name="end_date">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="usage_limit" class="form-label">Total Usage Limit</label>
+                        <input type="number" class="form-control" id="usage_limit" name="usage_limit" min="1" value="1">
+                        <div class="form-text">The total number of times this coupon can be used across all customers.</div>
+                    </div>
+
+                    <div class="form-check form-switch mb-4">
+                        <input class="form-check-input" type="checkbox" role="switch" id="is_active" name="is_active" checked>
+                        <label class="form-check-label" for="is_active">Activate this coupon immediately</label>
+                    </div>
+
+                    <div id="message-container"></div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">Create Discount</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    $('#add-discount-form').on('submit', function(e) {
+        e.preventDefault();
+        
+        const form = $(this);
+        const submitButton = form.find('button[type="submit"]');
+        const messageContainer = $('#message-container');
+        
+        const formData = {
+            code: $('#code').val().toUpperCase(),
+            discount_type: $('#discount_type').val(),
+            value: parseFloat($('#value').val()),
+            min_purchase_amount: parseFloat($('#min_purchase_amount').val()) || 0,
+            start_date: $('#start_date').val() || null,
+            end_date: $('#end_date').val() || null,
+            usage_limit: parseInt($('#usage_limit').val()) || 1,
+            is_active: $('#is_active').is(':checked')
+        };
+        
+        submitButton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Creating...');
+
+        $.ajax({
+            url: `{{ url_for('admin_bp.api_add_discount') }}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                messageContainer.html(`<div class="alert alert-success">${response.message} Redirecting...</div>`);
+                setTimeout(() => {
+                    window.location.href = `{{ url_for('admin_bp.manage_discounts_page') }}`;
+                }, 2000);
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "An unknown error occurred.";
+                messageContainer.html(`<div class="alert alert-danger">${errorMsg}</div>`);
+                submitButton.prop('disabled', false).text('Create Discount');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

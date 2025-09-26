@@ -1,0 +1,112 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Log In - ElectroMart{% endblock %}
+
+{% block form_title %}Welcome Back!{% endblock %}
+
+{% block content %}
+<!-- Login Form -->
+<form id="login-form" novalidate>
+    <div class="mb-3">
+        <label for="email" class="form-label">Email Address</label>
+        <input type="email" class="form-control" id="email" required>
+        <div class="invalid-feedback">Please enter a valid email address.</div>
+    </div>
+
+    <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <input type="password" class="form-control" id="password" required>
+        <div class="invalid-feedback">Please enter your password.</div>
+    </div>
+    
+    <div class="text-end mb-3">
+        <a href="{{ url_for('auth_bp.forgot_password') }}">Forgot Password?</a>
+    </div>
+
+    <!-- CAPTCHA Section -->
+    <div class="mb-4">
+        <label for="captcha" class="form-label">Enter the text below</label>
+        <div class="input-group">
+            <img id="captcha-image" src="{{ url_for('auth_bp.captcha') }}" alt="CAPTCHA">
+            <button class="btn btn-outline-secondary" type="button" id="refresh-captcha">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+        <input type="text" class="form-control mt-2" id="captcha" required>
+        <div class="invalid-feedback">Please enter the text from the image.</div>
+    </div>
+    
+    <div class="d-grid">
+        <button type="submit" class="btn btn-primary btn-lg">Log In</button>
+    </div>
+</form>
+<!-- End of Form -->
+
+<div id="form-message" class="mt-3"></div>
+
+<div class="text-center mt-4">
+    <p>Don't have an account? <a href="{{ url_for('auth_bp.register') }}">Sign Up</a></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    const captchaUrl = "{{ url_for('auth_bp.captcha') }}";
+    const loginUrl = "{{ url_for('auth_bp.login') }}";
+
+    $('#refresh-captcha').click(function() {
+        $('#captcha-image').attr('src', captchaUrl + '?' + new Date().getTime());
+    });
+
+    $('#login-form').submit(function(e) {
+        e.preventDefault();
+        $('#form-message').html('');
+
+        let isValid = true;
+        if (!$('#email').val()) {
+            $('#email').addClass('is-invalid');
+            isValid = false;
+        } else {
+            $('#email').removeClass('is-invalid');
+        }
+        if (!$('#password').val()) {
+            $('#password').addClass('is-invalid');
+            isValid = false;
+        } else {
+            $('#password').removeClass('is-invalid');
+        }
+        if (!$('#captcha').val()) {
+            $('#captcha').addClass('is-invalid');
+            isValid = false;
+        } else {
+            $('#captcha').removeClass('is-invalid');
+        }
+        if (!isValid) return;
+
+        const formData = {
+            email: $('#email').val(),
+            password: $('#password').val(),
+            captcha: $('#captcha').val()
+        };
+
+        $.ajax({
+            url: loginUrl,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                $('#form-message').html(`<div class="alert alert-success">${response.message}</div>`);
+                window.location.href = response.redirect_url;
+            },
+            error: function(jqXHR) {
+                const errorMessage = jqXHR.responseJSON ? jqXHR.responseJSON.error : 'An unexpected error occurred.';
+                $('#form-message').html(`<div class="alert alert-danger">${errorMessage}</div>`);
+                $('#refresh-captcha').click();
+                $('#captcha').val('');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

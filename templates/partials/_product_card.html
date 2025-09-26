@@ -1,0 +1,38 @@
+{# templates/partials/_product_card.html #}
+{# This template receives a single 'product' object #}
+
+<div class="col">
+    <div class="card h-100 shadow-sm product-card-hover">
+        <a href="{{ url_for('home_bp.product_details_page', product_id=product.product_id) }}">
+            <img src="{{ ('/' + product.image_url) if product.image_url else url_for('static', filename='images/placeholder.png') }}" 
+                 class="card-img-top" 
+                 alt="{{ product.name }}" 
+                 style="height: 200px; object-fit: cover;">
+        </a>
+        <div class="card-body d-flex flex-column">
+            <h5 class="card-title text-truncate" title="{{ product.name }}">{{ product.name }}</h5>
+            <p class="card-text fs-5 fw-bold text-primary text-end mt-auto">${{ "%.2f"|format(product.price) }}</p>
+        </div>
+
+        <!-- START: ACTION BUTTONS ADDED -->
+        <div class="card-footer bg-transparent border-0 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                
+                <!-- Add to Cart Button -->
+                <button class="btn btn-primary add-to-cart-btn" data-product-id="{{ product.product_id }}">
+                    <i class="fas fa-cart-plus"></i>
+                </button>
+                
+                <!-- View Details Button -->
+                <a href="{{ url_for('home_bp.product_details_page', product_id=product.product_id) }}" class="btn btn-outline-secondary">View</a>
+                
+                <!-- Wishlist Toggle Button -->
+                <button class="btn btn-outline-danger wishlist-toggle-btn" title="Add to Wishlist" data-product-id="{{ product.product_id }}">
+                    <i class="far fa-heart"></i> <!-- Start with outline heart icon -->
+                </button>
+
+            </div>
+        </div>
+        <!-- END: ACTION BUTTONS ADDED -->
+    </div>
+</div>

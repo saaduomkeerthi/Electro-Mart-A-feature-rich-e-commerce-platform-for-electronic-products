@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Profile{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    /* Custom styles for the new profile layout */
+    .profile-card-container {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 1.5rem;
+    }
+
+    .profile-sidebar {
+        background: var(--gradient-primary);
+        color: white;
+        border-radius: var(--border-radius);
+        padding: 2rem 1.5rem;
+        box-shadow: 0 10px 25px rgba(67, 97, 238, 0.3);
+    }
+
+    #image-preview {
+        width: 150px;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 4px solid white;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    
+    .profile-sidebar h4 {
+        margin-top: 1rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .profile-sidebar .text-role {
+        font-weight: 500;
+        opacity: 0.8;
+    }
+
+    /* Responsive adjustments for smaller screens */
+    @media (max-width: 991.98px) {
+        .profile-card-container {
+            grid-template-columns: 1fr;
+        }
+        .profile-sidebar {
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h2 mb-4">My Profile</h1>
+
+    <!-- This div will show success or error messages from form submission -->
+    <div id="form-message" class="mb-3"></div>
+
+    <div class="profile-card-container">
+        <!-- START: NEW LEFT-SIDE PROFILE CARD -->
+        <div class="profile-sidebar text-center">
+            <img id="image-preview" src="https://via.placeholder.com/150" class="mb-3" alt="Profile Preview">
+            
+            <h4 id="profile-display-name">Loading...</h4>
+            <p class="text-role">Administrator</p>
+            
+            <hr class="text-white-50">
+
+            <label for="profile-image-input" class="btn btn-light w-100">
+                <i class="fas fa-upload me-2"></i>Change Photo
+            </label>
+            <input type="file" id="profile-image-input" name="profile_image" class="d-none" accept="image/png, image/jpeg, image/gif">
+            <small class="d-block text-white-50 mt-2">Max 2MB. Recommended: Square image.</small>
+        </div>
+        <!-- END: NEW LEFT-SIDE PROFILE CARD -->
+
+        <!-- START: RIGHT-SIDE FORM CARD -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-user-edit me-2"></i>Edit Your Information</h5>
+            </div>
+            <div class="card-body p-4">
+                <form id="admin-profile-form" enctype="multipart/form-data">
+
+                    <!-- Email (Read-only) with new styling -->
+                    <div class="form-floating mb-3">
+                        <input type="email" id="email" class="form-control" name="email" placeholder="Email Address" readonly>
+                        <label for="email">Email Address (Cannot be changed)</label>
+                    </div>
+
+                    <!-- Full Name with new styling -->
+                    <div class="form-floating mb-3">
+                        <input type="text" id="full_name" name="full_name" class="form-control" placeholder="Full Name" required>
+                        <label for="full_name">Full Name</label>
+                    </div>
+
+                    <!-- Phone Number with new styling -->
+                    <div class="form-floating mb-3">
+                        <input type="tel" id="phone" name="phone" class="form-control" placeholder="Phone Number">
+                        <label for="phone">Phone Number (Optional)</label>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary btn-lg" id="save-btn">
+                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            <span class="btn-text">Save Changes</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!-- END: RIGHT-SIDE FORM CARD -->
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    // --- All of your existing JavaScript is perfect and requires NO CHANGES ---
+    const formMessageDiv = $('#form-message');
+    const saveButton = $('#save-btn');
+    const imagePreview = $('#image-preview');
+    const imageInput = $('#profile-image-input');
+    const profileForm = $('#admin-profile-form');
+    const profileDisplayName = $('#profile-display-name');
+
+    function loadProfileData() {
+        $.ajax({
+            url: "{{ url_for('admin_bp.api_admin_profile') }}",
+            method: 'GET',
+            success: function(data) {
+                $('#email').val(data.email);
+                $('#full_name').val(data.full_name);
+                $('#phone').val(data.phone || '');
+                
+                // Also update the display name in the left sidebar
+                profileDisplayName.text(data.full_name);
+                
+                if (data.profile_image_url) {
+                    imagePreview.attr('src', data.profile_image_url);
+                } else {
+                    imagePreview.attr('src', 'https://via.placeholder.com/150');
+                }
+            },
+            error: function() {
+                formMessageDiv.html('<div class="alert alert-danger">Could not load profile data. Please refresh the page.</div>');
+            }
+        });
+    }
+
+    imageInput.on('change', function() {
+        if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imagePreview.attr('src', e.target.result);
+            }
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+
+    profileForm.on('submit', function(e) {
+        e.preventDefault();
+        formMessageDiv.html('');
+        saveButton.prop('disabled', true);
+        saveButton.find('.spinner-border').removeClass('d-none');
+        saveButton.find('.btn-text').text('Saving...');
+
+        // IMPORTANT: We need to manually append the file to FormData
+        // because the input is outside the <form> tag in the new layout.
+        const formData = new FormData(this);
+        const imageFile = imageInput[0].files[0];
+        if (imageFile) {
+            formData.append('profile_image', imageFile);
+        }
+
+        $.ajax({
+            url: "{{ url_for('admin_bp.api_admin_profile') }}",
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                formMessageDiv.html(`<div class="alert alert-success alert-dismissible fade show">${response.message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`);
+                loadProfileData(); // Reloads data to show updated name
+                updateNavbarProfileImage(); // Updates the top navbar image
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "An error occurred.";
+                formMessageDiv.html(`<div class="alert alert-danger alert-dismissible fade show">${errorMsg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`);
+            },
+            complete: function() {
+                saveButton.prop('disabled', false);
+                saveButton.find('.spinner-border').addClass('d-none');
+                saveButton.find('.btn-text').text('Save Changes');
+            }
+        });
+    });
+
+    loadProfileData();
+});
+</script>
+{% endblock %}

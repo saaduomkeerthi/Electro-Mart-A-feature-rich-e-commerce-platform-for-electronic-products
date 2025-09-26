@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Order History - ElectroMart{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">My Order History</h1>
+    
+    <div class="card shadow-sm">
+        <div class="card-body">
+
+            <!-- START: NEW FILTER AND SEARCH FORM -->
+            <form id="filter-form" class="row g-3 align-items-center mb-4">
+                <div class="col-md-5">
+                    <label for="status-filter" class="form-label">Filter by Status</label>
+                    <select id="status-filter" class="form-select">
+                        <option value="">All Statuses</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="processing">Processing</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label for="search-input" class="form-label">Search by Order # or Product</label>
+                    <input type="search" id="search-input" class="form-control" placeholder="e.g., ORD2024...">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+            <!-- END: NEW FILTER AND SEARCH FORM -->
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Order #</th>
+                            <th>Date</th>
+                            <th>Products</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="order-history-table">
+                        <!-- Orders will be loaded here via AJAX -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="loading-spinner" class="text-center mt-3" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+
+            <!-- START: NEW PAGINATION CONTAINER -->
+            <nav id="pagination-container" class="mt-4 d-flex justify-content-center">
+                <!-- Pagination links will be rendered here -->
+            </nav>
+            <!-- END: NEW PAGINATION CONTAINER -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+
+    // --- 1. REFERENCES & STATE ---
+    const tableBody = $('#order-history-table');
+    const spinner = $('#loading-spinner');
+    const paginationContainer = $('#pagination-container');
+    const statusFilter = $('#status-filter');
+    const searchInput = $('#search-input');
+
+    // --- 2. HELPER FUNCTION ---
+    function getStatusBadge(status) {
+        const statusMap = {
+            'pending': { class: 'bg-secondary', text: 'Pending' },
+            'confirmed': { class: 'bg-info', text: 'Confirmed' },
+            'processing': { class: 'bg-primary', text: 'Processing' },
+            'shipped': { class: 'bg-warning text-dark', text: 'Shipped' },
+            'delivered': { class: 'bg-success', text: 'Delivered' },
+            'cancelled': { class: 'bg-danger', text: 'Cancelled' }
+        };
+        const style = statusMap[status] || { class: 'bg-secondary', text: 'Unknown' };
+        return `<span class="badge ${style.class}">${style.text}</span>`;
+    }
+
+    // --- 3. CORE DATA LOADING FUNCTION ---
+    function loadOrderHistory(page = 1) {
+        spinner.show();
+        tableBody.empty();
+        paginationContainer.empty();
+
+        const search = searchInput.val();
+        const status = statusFilter.val();
+
+        let apiUrl = `{{ url_for('buyer_bp.api_order_history_data') }}?page=${page}`;
+        if (search) apiUrl += `&search=${search}`;
+        if (status) apiUrl += `&status=${status}`;
+
+        $.ajax({
+            url: apiUrl,
+            method: 'GET',
+            success: function(response) {
+                spinner.hide();
+                renderTable(response.orders);
+                renderPagination(response.total_pages, response.current_page);
+            },
+            error: function() {
+                spinner.hide();
+                tableBody.html('<tr><td colspan="6" class="text-center text-danger">Could not load order history.</td></tr>');
+            }
+        });
+    }
+
+    // --- 4. RENDERING FUNCTIONS ---
+    function renderTable(orders) {
+        if (!orders || orders.length === 0) {
+            tableBody.html('<tr><td colspan="6" class="text-center">No orders found matching your criteria.</td></tr>');
+            return;
+        }
+
+        orders.forEach(function(order) {
+            // Truncate the product list if it's too long
+            const maxLen = 50;
+            const productsDisplay = order.products.length > maxLen 
+                ? order.products.substring(0, maxLen) + '...' 
+                : order.products;
+
+            const rowHtml = `
+                <tr>
+                    <td><strong>${order.order_number}</strong></td>
+                    <td>${new Date(order.order_date).toLocaleDateString()}</td>
+                    <td title="${order.products}">${productsDisplay}</td>
+                    <td>$${parseFloat(order.total_amount).toFixed(2)}</td>
+                    <td>${getStatusBadge(order.status)}</td>
+                    <td>
+                        <a href="/buyer/order/${order.order_id}" class="btn btn-sm btn-outline-primary">
+                            View Details
+                        </a>
+                    </td>
+                </tr>
+            `;
+            tableBody.append(rowHtml);
+        });
+    }
+
+    function renderPagination(totalPages, currentPage) {
+        if (totalPages <= 1) return;
+        let paginationHtml = '<ul class="pagination">';
+        paginationHtml += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a></li>`;
+        for (let i = 1; i <= totalPages; i++) {
+            paginationHtml += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+        }
+        paginationHtml += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage + 1}">Next</a></li>`;
+        paginationHtml += '</ul>';
+        paginationContainer.html(paginationHtml);
+    }
+
+    // --- 5. EVENT LISTENERS ---
+    $('#filter-form').on('submit', function(e) {
+        e.preventDefault();
+        loadOrderHistory(1); // Reset to page 1 for new filters
+    });
+
+    paginationContainer.on('click', '.page-link', function(e) {
+        e.preventDefault();
+        const page = $(this).data('page');
+        if (page) {
+            loadOrderHistory(page);
+        }
+    });
+
+    // --- 6. INITIAL PAGE LOAD ---
+    loadOrderHistory();
+});
+</script>
+{% endblock %}

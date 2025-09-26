@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+
+{% block title %}Checkout - ElectroMart{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Checkout</h1>
+    <div class="row g-5">
+        <!-- Left Column: Shipping and Payment -->
+        <div class="col-lg-7">
+            <!-- Shipping Address Section -->
+            <h4>Shipping Address</h4>
+            <div id="address-list" class="mb-4">
+                <!-- Saved addresses will be loaded here by AJAX -->
+                <div class="text-center p-4"><div class="spinner-border text-primary"></div></div>
+            </div>
+            <button class="btn btn-outline-secondary mb-4" id="add-new-address-btn">
+                <i class="fas fa-plus"></i> Add New Address
+            </button>
+
+            <!-- New Address Form (hidden by default) -->
+            <div id="new-address-form-container" class="card card-body" style="display: none;">
+                <h5>New Address Details</h5>
+                <form id="new-address-form" novalidate>
+                    <!-- Form fields for a new address -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="recipient_name" class="form-label">Full Name</label>
+                            <input type="text" class="form-control" id="recipient_name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="phone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="phone" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="address_line1" class="form-label">Address Line 1</label>
+                        <input type="text" class="form-control" id="address_line1" required>
+                    </div>
+                    
+                    <!-- DYNAMIC DROPDOWNS START HERE -->
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="country-select" class="form-label">Country</label>
+                            <select class="form-select" id="country-select" required>
+                                <option value="" selected disabled>Select Country...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="state-select" class="form-label">State</label>
+                            <select class="form-select" id="state-select" required disabled>
+                                <option value="" selected disabled>Select State...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="city-select" class="form-label">City</label>
+                            <select class="form-select" id="city-select" required disabled>
+                                <option value="" selected disabled>Select City...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- DYNAMIC DROPDOWNS END HERE -->
+
+                    <div class="mb-3">
+                        <label for="zip_code" class="form-label">ZIP Code</label>
+                        <input type="text" class="form-control" id="zip_code" required>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="is_default">
+                        <label class="form-check-label" for="is_default">Set as default address</label>
+                    </div>
+                    <div id="form-message"></div>
+                    <button type="submit" class="btn btn-primary">Save Address</button>
+                    <button type="button" class="btn btn-secondary" id="cancel-add-address-btn">Cancel</button>
+                </form>
+            </div>
+            <hr class="my-4">
+
+            <!-- Payment Method Section -->
+            <h4>Payment Method</h4>
+            <div class="my-3">
+                <div class="form-check">
+                    <input id="credit" name="paymentMethod" type="radio" class="form-check-input" value="credit_card" checked required>
+                    <label class="form-check-label" for="credit">Credit card</label>
+                </div>
+                <div class="form-check">
+                    <input id="debit" name="paymentMethod" type="radio" class="form-check-input" value="debit_card" required>
+                    <label class="form-check-label" for="debit">Debit card</label>
+                </div>
+                <div class="form-check">
+                    <input id="paypal" name="paymentMethod" type="radio" class="form-check-input" value="paypal" required>
+                    <label class="form-check-label" for="paypal">PayPal</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Order Summary -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">Order Summary</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush" id="order-summary-items">
+                        <!-- Cart items will be loaded here -->
+                        <div class="text-center p-4"><div class="spinner-border text-primary"></div></div>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between fw-bold fs-5">
+                        <span>Total (USD)</span>
+                        <span id="summary-total">$0.00</span>
+                    </div>
+                </div>
+            </div>
+            <div class="d-grid mt-4">
+                <button class="btn btn-primary btn-lg" id="place-order-btn">Place Your Order</button>
+            </div>
+            <div id="order-message" class="mt-3"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    
+    // --- DATA LOADING FUNCTIONS ---
+    function loadOrderSummary() {
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_get_cart') }}",
+            method: 'GET',
+            success: function(data) {
+                const summaryList = $('#order-summary-items');
+                summaryList.empty();
+                if (data.items.length === 0) {
+                    window.location.href = "{{ url_for('buyer_bp.cart_page') }}"; // Redirect if cart is empty
+                }
+                data.items.forEach(item => {
+                    summaryList.append(`
+                        <li class="list-group-item d-flex justify-content-between lh-sm">
+                            <div>
+                                <h6 class="my-0">${item.name}</h6>
+                                <small class="text-muted">Qty: ${item.quantity}</small>
+                            </div>
+                            <span class="text-muted">$${item.subtotal.toFixed(2)}</span>
+                        </li>
+                    `);
+                });
+                $('#summary-total').text(`$${data.total.toFixed(2)}`);
+            }
+        });
+    }
+
+    function loadAddresses() {
+        const listContainer = $('#address-list');
+        listContainer.html('<div class="text-center p-4"><div class="spinner-border text-primary"></div></div>');
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_get_addresses') }}",
+            method: 'GET',
+            success: function(addresses) {
+                listContainer.empty();
+                if (addresses.length === 0) {
+                    listContainer.html('<p class="alert alert-info">No saved addresses. Please add one below.</p>');
+                    $('#add-new-address-btn').click(); // Auto-show the form
+                } else {
+                    addresses.forEach((addr, index) => {
+                        const checked = addr.is_default || addresses.length === 1 ? 'checked' : '';
+                        listContainer.append(`
+                            <div class="form-check card card-body mb-2 position-relative">
+                                <input class="form-check-input" type="radio" name="shipping_address" id="addr-${addr.address_id}" value="${addr.address_id}" ${checked}>
+                                <label class="form-check-label ps-2" for="addr-${addr.address_id}">
+                                    <strong>${addr.recipient_name}</strong> ${addr.is_default ? '<span class="badge bg-secondary">Default</span>' : ''}<br>
+                                    ${addr.address_line1}, ${addr.city}, ${addr.state} ${addr.zip_code}
+                                </label>
+                            </div>
+                        `);
+                    });
+                }
+            }
+        });
+    }
+
+    // --- NEW: DYNAMIC DROPDOWN LOGIC ---
+    function loadCountries() {
+        const countrySelect = $('#country-select');
+        $.ajax({
+            url: "/api/countries", // Using the API endpoint from __init__.py
+            method: 'GET',
+            success: function(countries) {
+                countries.forEach(country => {
+                    countrySelect.append(`<option value="${country.iso2}">${country.name}</option>`);
+                });
+            }
+        });
+    }
+
+    $('#country-select').on('change', function() {
+        const countryCode = $(this).val();
+        const stateSelect = $('#state-select');
+        const citySelect = $('#city-select');
+
+        stateSelect.prop('disabled', false).html('<option value="" selected disabled>Loading States...</option>');
+        citySelect.prop('disabled', true).html('<option value="" selected disabled>Select City...</option>');
+
+        $.ajax({
+            url: `/api/states/${countryCode}`,
+            method: 'GET',
+            success: function(states) {
+                stateSelect.html('<option value="" selected disabled>Select State...</option>');
+                states.forEach(state => {
+                    stateSelect.append(`<option value="${state.iso2}">${state.name}</option>`);
+                });
+            }
+        });
+    });
+
+    $('#state-select').on('change', function() {
+        const countryCode = $('#country-select').val();
+        const stateCode = $(this).val();
+        const citySelect = $('#city-select');
+
+        citySelect.prop('disabled', false).html('<option value="" selected disabled>Loading Cities...</option>');
+
+        $.ajax({
+            url: `/api/cities/${countryCode}/${stateCode}`,
+            method: 'GET',
+            success: function(cities) {
+                citySelect.html('<option value="" selected disabled>Select City...</option>');
+                cities.forEach(city => {
+                    citySelect.append(`<option value="${city.name}">${city.name}</option>`);
+                });
+            }
+        });
+    });
+
+
+    // --- EVENT HANDLERS ---
+    $('#add-new-address-btn').on('click', function() {
+        $('#new-address-form-container').slideDown();
+        $(this).hide();
+    });
+
+    $('#cancel-add-address-btn').on('click', function() {
+        $('#new-address-form-container').slideUp();
+        $('#add-new-address-btn').show();
+    });
+
+    $('#new-address-form').on('submit', function(e) {
+        e.preventDefault();
+        // MODIFIED: Read data from selects
+        const addressData = {
+            recipient_name: $('#recipient_name').val(),
+            phone: $('#phone').val(),
+            address_line1: $('#address_line1').val(),
+            // Use .text() for the full name, which is what the DB expects
+            country: $('#country-select option:selected').text(),
+            state: $('#state-select option:selected').text(),
+            city: $('#city-select').val(),
+            zip_code: $('#zip_code').val(),
+            is_default: $('#is_default').is(':checked')
+        };
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_add_address') }}",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(addressData),
+            success: function(response) {
+                $('#new-address-form-container').slideUp();
+                $('#add-new-address-btn').show();
+                $('#new-address-form')[0].reset(); // Reset form fields
+                loadAddresses(); // Refresh the address list
+            },
+            error: function(jqXHR) {
+                $('#form-message').html(`<div class="alert alert-danger">${jqXHR.responseJSON.error}</div>`);
+            }
+        });
+    });
+
+   $('#place-order-btn').on('click', function() {
+    const orderMessageDiv = $('#order-message');
+    orderMessageDiv.html(''); // Clear previous messages
+
+    // 1. Get the ID of the selected shipping address
+    const selectedAddressId = $('input[name="shipping_address"]:checked').val();
+    if (!selectedAddressId) {
+        orderMessageDiv.html('<div class="alert alert-danger">Please select a shipping address.</div>');
+        return;
+    }
+
+    // 2. Get the value of the selected payment method
+    const selectedPaymentMethod = $('input[name="paymentMethod"]:checked').val();
+    if (!selectedPaymentMethod) {
+        orderMessageDiv.html('<div class="alert alert-danger">Please select a payment method.</div>');
+        return;
+    }
+    
+    // Disable the button to prevent multiple clicks
+    $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Placing Order...');
+
+    // 3. Send the data to the backend API via AJAX
+    $.ajax({
+        url: "{{ url_for('buyer_bp.api_place_order') }}", // The API endpoint in buyer/routes.py
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            address_id: parseInt(selectedAddressId),
+            payment_method: selectedPaymentMethod
+        }),
+        success: function(response) {
+            // On success, show the message and redirect the user
+            orderMessageDiv.html(`<div class="alert alert-success">${response.message}</div>`);
+            
+            // Redirect to the specified URL after a short delay
+            setTimeout(function() {
+                window.location.href = response.redirect_url;
+            }, 2000); // 2-second delay
+        },
+        error: function(xhr) {
+            // If there's an error, show the message and re-enable the button
+            const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "An unexpected error occurred.";
+            orderMessageDiv.html(`<div class="alert alert-danger">${errorMsg}</div>`);
+            $('#place-order-btn').prop('disabled', false).text('Place Your Order');
+        }
+    });
+});
+
+    // --- INITIAL PAGE LOAD ---
+    loadOrderSummary();
+    loadAddresses();
+    loadCountries(); // Load countries into the form on page load
+});
+</script>
+{% endblock %}

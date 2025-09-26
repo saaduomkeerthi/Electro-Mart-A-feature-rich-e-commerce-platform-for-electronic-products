@@ -1,0 +1,300 @@
+<!-- electronic_ecommerce/admin/templates/users.html -->
+
+{% extends "base.html" %}
+
+{% block title %}Manage Users{% endblock %}
+
+{% block head %}
+<style>
+    .clickable-user {
+        cursor: pointer;
+        text-decoration: none;
+        color: var(--primary-color);
+        font-weight: 500;
+    }
+    .clickable-user:hover {
+        text-decoration: underline;
+    }
+    #modal-profile-image {
+        width: 120px;
+        height: 120px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 3px solid var(--primary-color);
+    }
+    .table-profile-image {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 50%;
+        margin-right: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h2 mb-4">Manage Users</h1>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">All Platform Users</h5>
+        </div>
+        <div class="card-body">
+            <!-- START: NEW FILTER AND SEARCH FORM -->
+            <form id="filter-form" class="row g-3 align-items-center mb-4">
+                <div class="col-md-5">
+                    <label for="role-filter" class="form-label">Filter by Role</label>
+                    <select id="role-filter" class="form-select">
+                        <option value="">All Roles</option>
+                        <option value="admin">Admin</option>
+                        <option value="seller">Seller</option>
+                        <option value="buyer">Buyer</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label for="search-input" class="form-label">Search by Name or Email</label>
+                    <input type="search" id="search-input" class="form-control" placeholder="e.g., John Doe...">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+            <!-- END: NEW FILTER AND SEARCH FORM -->
+
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th class="text-center">Role</th>
+                            <th class="text-center">Account Status</th>
+                            <th>Registered On</th>
+                            <th>Last Login</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body">
+                        <!-- Dynamic content loaded by AJAX -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div id="loading-spinner" class="text-center mt-3" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+
+            <!-- START: NEW PAGINATION CONTAINER -->
+            <nav id="pagination-container" class="mt-4 d-flex justify-content-center">
+                <!-- Pagination links will be rendered here -->
+            </nav>
+            <!-- END: NEW PAGINATION CONTAINER -->
+        </div>
+    </div>
+</div>
+
+<!-- User Profile Modal (remains unchanged) -->
+<div class="modal fade" id="userProfileModal" tabindex="-1" aria-labelledby="userProfileModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="userProfileModalLabel">User Profile</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="modal-loader" class="text-center"><div class="spinner-border"></div></div>
+        <div id="modal-content-area" style="display: none;">
+            <div class="text-center mb-4">
+                <img src="" id="modal-profile-image" alt="Profile Image">
+            </div>
+            <h3 class="text-center" id="modal-full-name"></h3>
+            <p class="text-center text-muted" id="modal-email"></p>
+            <hr>
+            <dl class="row">
+                <dt class="col-sm-4">Role:</dt>
+                <dd class="col-sm-8" id="modal-role"></dd>
+                <dt class="col-sm-4">Phone:</dt>
+                <dd class="col-sm-8" id="modal-phone"></dd>
+            </dl>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    
+    // --- 1. REFERENCES & STATE ---
+    const userProfileModal = new bootstrap.Modal(document.getElementById('userProfileModal'));
+    const tableBody = $('#users-table-body');
+    const spinner = $('#loading-spinner');
+    const paginationContainer = $('#pagination-container');
+    const roleFilter = $('#role-filter');
+    const searchInput = $('#search-input');
+    const currentAdminId = parseInt("{{ session['user_id'] }}", 10);
+
+    // --- 2. HELPER FUNCTIONS ---
+    function getStatusBadge(label, isActive) {
+        return isActive ? `<span class="badge bg-success">${label}</span>` : `<span class="badge bg-danger">${label}</span>`;
+    }
+    function getRoleBadge(role) {
+        if (role === 'admin') return `<span class="badge bg-primary">${role.charAt(0).toUpperCase() + role.slice(1)}</span>`;
+        if (role === 'seller') return `<span class="badge bg-info text-dark">${role.charAt(0).toUpperCase() + role.slice(1)}</span>`;
+        return `<span class="badge bg-light text-dark">${role.charAt(0).toUpperCase() + role.slice(1)}</span>`;
+    }
+
+    // --- 3. CORE DATA LOADING FUNCTION ---
+    function loadUsers(page = 1) {
+        spinner.show();
+        tableBody.empty();
+        paginationContainer.empty();
+
+        const search = searchInput.val();
+        const role = roleFilter.val();
+
+        let apiUrl = `{{ url_for('admin_bp.api_get_all_users') }}?page=${page}`;
+        if (search) apiUrl += `&search=${search}`;
+        if (role) apiUrl += `&role=${role}`;
+
+        $.ajax({
+            url: apiUrl,
+            method: 'GET',
+            success: function(response) {
+                spinner.hide();
+                renderTable(response.users);
+                renderPagination(response.total_pages, response.current_page);
+            },
+            error: function() {
+                spinner.hide();
+                tableBody.html('<tr><td colspan="7" class="text-center text-danger">Error: Could not load user data.</td></tr>');
+            }
+        });
+    }
+
+    // --- 4. RENDERING FUNCTIONS ---
+    function renderTable(users) {
+        if (!users || users.length === 0) {
+            tableBody.html('<tr><td colspan="7" class="text-center">No users found matching your criteria.</td></tr>');
+            return;
+        }
+
+        users.forEach(function(user) {
+            const statusBadge = getStatusBadge(user.is_active ? 'Active' : 'Inactive', user.is_active);
+            const roleBadge = getRoleBadge(user.role);
+            
+            let actionButton = user.is_active ?
+                `<button class="btn btn-warning btn-sm status-btn" data-user-id="${user.user_id}" data-is-active="false">Deactivate</button>` :
+                `<button class="btn btn-success btn-sm status-btn" data-user-id="${user.user_id}" data-is-active="true">Activate</button>`;
+            
+            if (user.user_id === currentAdminId) {
+                actionButton = `<button class="btn btn-secondary btn-sm" disabled title="Cannot deactivate self">Deactivate</button>`;
+            }
+
+            const placeholder = "{{ url_for('static', filename='images/placeholder_profile.png') }}";
+            const imageUrl = user.profile_image_url || placeholder;
+
+            const nameCell = `
+                <td>
+                    <div class="d-flex align-items-center">
+                        <img src="${imageUrl}" class="table-profile-image" alt="${user.full_name}">
+                        <a href="#" class="clickable-user view-user-btn" data-user-id="${user.user_id}">
+                            ${user.full_name}
+                        </a>
+                    </div>
+                </td>`;
+
+            const row = `<tr>${nameCell}<td>${user.email}</td><td class="text-center">${roleBadge}</td><td class="text-center">${statusBadge}</td><td>${user.created_at}</td><td>${user.last_login}</td><td class="text-center">${actionButton}</td></tr>`;
+            tableBody.append(row);
+        });
+    }
+
+    function renderPagination(totalPages, currentPage) {
+        if (totalPages <= 1) return;
+        let paginationHtml = '<ul class="pagination">';
+        paginationHtml += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a></li>`;
+        for (let i = 1; i <= totalPages; i++) {
+            paginationHtml += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+        }
+        paginationHtml += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage + 1}">Next</a></li>`;
+        paginationHtml += '</ul>';
+        paginationContainer.html(paginationHtml);
+    }
+
+    // --- 5. EVENT LISTENERS ---
+    $('#filter-form').on('submit', function(e) {
+        e.preventDefault();
+        loadUsers(1); // Reset to page 1 for new filters
+    });
+
+    paginationContainer.on('click', '.page-link', function(e) {
+        e.preventDefault();
+        const page = $(this).data('page');
+        if (page) loadUsers(page);
+    });
+
+    // View user profile (unchanged)
+    tableBody.on('click', '.view-user-btn', function(e) {
+        e.preventDefault();
+        const userId = $(this).data('user-id');
+        $('#modal-loader').show();
+        $('#modal-content-area').hide();
+        userProfileModal.show();
+        $.ajax({
+            url: `/admin/api/user/${userId}`, method: 'GET',
+            success: function(user) {
+                $('#modal-profile-image').attr('src', user.profile_image_url || 'https://via.placeholder.com/120');
+                $('#modal-full-name').text(user.full_name);
+                $('#modal-email').text(user.email);
+                $('#modal-role').html(getRoleBadge(user.role));
+                $('#modal-phone').text(user.phone || 'N/A');
+                $('#modal-loader').hide();
+                $('#modal-content-area').show();
+            },
+            error: function() {
+                $('#modal-loader').hide();
+                $('#modal-content-area').html('<p class="text-danger">Could not load user profile.</p>').show();
+            }
+        });
+    });
+
+    // Update user status (unchanged, but now reloads current page view)
+    tableBody.on('click', '.status-btn', function(e) {
+        e.preventDefault();
+        const button = $(this);
+        const userId = button.data('user-id');
+        const isActive = button.data('is-active');
+        const actionText = isActive ? "activate" : "deactivate";
+        const userName = button.closest('tr').find('.clickable-user').text().trim();
+        
+        if (!confirm(`Are you sure you want to ${actionText} the user "${userName}"?`)) return;
+
+        $.ajax({
+            url: "/admin/api/user/update_status",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ user_id: userId, is_active: isActive }),
+            success: function() {
+                // Find current page and reload it to maintain view
+                const currentPage = parseInt($('.pagination .active .page-link').data('page')) || 1;
+                loadUsers(currentPage);
+            },
+            error: function(xhr) {
+                alert(`Error: ${xhr.responseJSON.error}`);
+            }
+        });
+    });
+
+    // --- 6. INITIAL PAGE LOAD ---
+    loadUsers();
+});
+</script>
+{% endblock %}

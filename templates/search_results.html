@@ -1,0 +1,275 @@
+{% extends "base.html" if session.user_id else "public_base.html" %}
+
+{% block title %}Search Results{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .product-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .product-card .card-img-top {
+        height: 220px;
+        object-fit: contain;
+        padding: 1rem;
+    }
+    /* Style for buttons after an action is taken */
+    .add-to-cart-btn.added {
+        background-color: #198754; /* Green */
+        border-color: #198754;
+        cursor: default;
+    }
+    .wishlist-toggle-btn.active {
+        background-color: #dc3545; /* Red */
+        border-color: #dc3545;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Action Message placeholder for Add to Cart/Wishlist feedback -->
+    <div id="action-message-container" class="mb-3"></div>
+
+    <div class="row">
+        <!-- Filters Sidebar -->
+        <div class="col-lg-3">
+            <h4>Filters</h4>
+            <form id="filter-form">
+                <input type="hidden" name="q" value="{{ search_term or '' }}">
+                <div class="mb-3">
+                    <label for="category-filter" class="form-label">Category</label>
+                    <select class="form-select" id="category-filter" name="category">
+                        <option value="">All Categories</option>
+                        {% for category in all_categories %}
+                            <option value="{{ category.category_id }}" {% if current_filters.category_id == category.category_id %}selected{% endif %}>
+                                {{ category.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="brand-filter" class="form-label">Brand</label>
+                    <select class="form-select" id="brand-filter" name="brand">
+                        <option value="">All Brands</option>
+                         {% for brand in all_brands %}
+                            <option value="{{ brand }}" {% if current_filters.brand == brand %}selected{% endif %}>
+                                {{ brand }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Price Range</label>
+                    <div class="d-flex align-items-center">
+                        <input type="number" class="form-control" name="min_price" placeholder="Min" value="{{ current_filters.min_price or '' }}">
+                        <span class="mx-2">-</span>
+                        <input type="number" class="form-control" name="max_price" placeholder="Max" value="{{ current_filters.max_price or '' }}">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="sort-by" class="form-label">Sort By</label>
+                    <select class="form-select" id="sort-by" name="sort_by">
+                        <option value="relevance" {% if current_filters.sort_by == 'relevance' %}selected{% endif %}>Relevance</option>
+                        <option value="price_asc" {% if current_filters.sort_by == 'price_asc' %}selected{% endif %}>Price: Low to High</option>
+                        <option value="price_desc" {% if current_filters.sort_by == 'price_desc' %}selected{% endif %}>Price: High to Low</option>
+                        <option value="newest" {% if current_filters.sort_by == 'newest' %}selected{% endif %}>Newest Arrivals</option>
+                    </select>
+                </div>
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                    <a href="{{ url_for('home_bp.search_page') }}" class="btn btn-outline-secondary">Clear All</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Products Grid -->
+        <div class="col-lg-9">
+            <h3>Search Results for "{{ search_term or 'All Products' }}"</h3>
+            <p id="product-count-display">{{ pagination.total_count }} products found</p>
+            <hr>
+            <div id="product-grid-container">
+                {% include 'partials/product_grid.html' %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal to prompt login (only used if user is not logged in) -->
+<div class="modal fade" id="loginPromptModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Authentication Required</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body"><p>Please log in or register to add items to your cart or wishlist.</p></div>
+      <div class="modal-footer">
+        <a href="{{ url_for('auth_bp.login') }}" class="btn btn-primary">Login</a>
+        <a href="{{ url_for('auth_bp.register') }}" class="btn btn-secondary">Register</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    const loginPromptModal = new bootstrap.Modal(document.getElementById('loginPromptModal'));
+    const gridContainer = $('#product-grid-container');
+
+    function showMessage(text, type) {
+        $('#action-message-container').html(`<div class="alert alert-${type} alert-dismissible fade show">${text}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`);
+    }
+
+    // --- LOGIC FOR LOGGED-IN USERS ---
+    {% if session.user_id %}
+    
+    // Function to check the status of items on the page (in cart? in wishlist?)
+    function checkProductStatuses() {
+        const productIds = [];
+        $('.product-card').each(function() {
+            const productId = $(this).find('.add-to-cart-btn').data('product-id');
+            productIds.push(productId);
+        });
+
+        if (productIds.length === 0) return;
+
+        // Check cart status
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_get_cart_status') }}",
+            method: 'POST', contentType: 'application/json',
+            data: JSON.stringify({ product_ids: productIds }),
+            success: function(statuses) {
+                for (const [productId, inCart] of Object.entries(statuses)) {
+                    const button = $(`.add-to-cart-btn[data-product-id="${productId}"]`);
+                    if (inCart) {
+                        button.addClass('added').prop('disabled', true).html('<i class="fas fa-check"></i> Added');
+                    }
+                }
+            }
+        });
+
+        // Check wishlist status
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_get_wishlist_status') }}",
+            method: 'POST', contentType: 'application/json',
+            data: JSON.stringify({ product_ids: productIds }),
+            success: function(statuses) {
+                for (const [productId, inWishlist] of Object.entries(statuses)) {
+                    const button = $(`.wishlist-toggle-btn[data-product-id="${productId}"]`);
+                    if (inWishlist) {
+                        button.addClass('active').find('i').removeClass('far').addClass('fas');
+                    }
+                }
+            }
+        });
+    }
+
+    // Event Delegation for Add to Cart
+    gridContainer.on('click', '.add-to-cart-btn', function() {
+        const button = $(this);
+        const productId = button.data('product-id');
+
+        button.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_add_to_cart') }}",
+            method: 'POST', contentType: 'application/json',
+            data: JSON.stringify({ product_id: productId, quantity: 1 }),
+            success: function(response) {
+                button.addClass('added').html('<i class="fas fa-check"></i> Added');
+                showMessage(response.message, 'success');
+                updateCartCount(); // This function is in base.html
+            },
+            error: function(xhr) {
+                button.prop('disabled', false).html('<i class="fas fa-cart-plus me-1"></i> Add to Cart');
+                showMessage(xhr.responseJSON.error || 'Could not add item to cart.', 'danger');
+            }
+        });
+    });
+
+    // Event Delegation for Wishlist Toggle
+    gridContainer.on('click', '.wishlist-toggle-btn', function() {
+        const button = $(this);
+        const icon = button.find('i');
+        const productId = button.data('product-id');
+
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_toggle_wishlist') }}",
+            method: 'POST', contentType: 'application/json',
+            data: JSON.stringify({ product_id: productId }),
+            success: function(response) {
+                button.toggleClass('active', response.status);
+                icon.toggleClass('far fas', response.status);
+                showMessage(response.message, 'info');
+            }
+        });
+    });
+
+    // Initial status check for the first page load
+    checkProductStatuses();
+
+    {% else %}
+    // --- LOGIC FOR PUBLIC/ANONYMOUS USERS ---
+    
+    // Make ALL buttons trigger the login modal
+    gridContainer.on('click', '.add-to-cart-btn, .wishlist-toggle-btn', function() {
+        loginPromptModal.show();
+    });
+
+    {% endif %}
+
+    // --- AJAX Pagination & Filtering (Works for both logged-in and public users) ---
+    $('#filter-form').on('submit', function(e) {
+        e.preventDefault();
+        loadProducts(1);
+    });
+
+    gridContainer.on('click', '.pagination a', function(e) {
+        e.preventDefault();
+        const pageUrl = new URL($(this).attr('href'), window.location.origin);
+        const page = pageUrl.searchParams.get('page');
+        loadProducts(page);
+    });
+
+    function loadProducts(page) {
+        const formData = $('#filter-form').serialize();
+        const url = `{{ url_for('home_bp.search_page') }}?page=${page}&${formData}`;
+        
+        gridContainer.css('opacity', 0.5);
+
+        $.ajax({
+            url: url,
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            success: function(response) {
+                // To get the product count, we need to parse the response
+                const newContent = $(response);
+                const newCount = newContent.find('#product-grid .product-card').length;
+                // This is a bit of a trick to get the total count from the pagination data if available, or just use length.
+                // A better way would be for the API to return JSON with count and html.
+                
+                gridContainer.html(response).css('opacity', 1);
+                // Update product count display if it exists in the response
+                // This part is tricky without an API returning JSON. For now, we update after the fact.
+                
+                window.history.pushState({path: url}, '', url);
+                
+                {% if session.user_id %}
+                checkProductStatuses(); // Re-check statuses for newly loaded products
+                {% endif %}
+            },
+            error: function() {
+                alert('Error loading products.');
+                gridContainer.css('opacity', 1);
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}ElectroMart{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #4361ee;
+      --primary-hover-color: #3a56d4;
+      --secondary-color: #7209b7;
+      --accent-color: #f72585;
+      --sidebar-width: 280px;
+      --sidebar-width-collapsed: 90px;
+      --sidebar-bg: #1a1d2e;
+      --sidebar-link-hover-bg: rgba(67, 97, 238, 0.15);
+      --sidebar-text: #a2a8d3;
+      --light-gray: #f1f5f9;
+      --card-bg: #ffffff;
+      --box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      --transition-speed: 0.3s;
+      --border-radius: 12px;
+      --gradient-primary: linear-gradient(135deg, #4361ee, #3a0ca3);
+      --gradient-accent: linear-gradient(135deg, #f72585, #7209b7);
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: var(--light-gray);
+      color: #2d3748;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .main-wrapper {
+      display: flex;
+      flex: 1;
+    }
+
+    #sidebar {
+      width: var(--sidebar-width);
+      background: var(--sidebar-bg);
+      z-index: 1100;
+      transition: width var(--transition-speed) ease-in-out;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .sidebar-header {
+      background: var(--gradient-primary);
+      box-shadow: 0 4px 20px rgba(67, 97, 238, 0.3);
+      padding: 1.5rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 81px;
+      flex-shrink: 0;
+    }
+    
+    .sidebar-brand-link {
+        color:#fff; font-size:1.5rem; font-weight:700; text-decoration:none;
+        display:flex; align-items:center; flex-shrink: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .sidebar-brand-link i { font-size:1.8rem; margin-right:10px; }
+    
+    .page-wrapper {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      transition: margin-left var(--transition-speed) ease-in-out;
+      width: calc(100% - var(--sidebar-width));
+    }
+
+    /* --- START: UPDATED STYLES FOR COLLAPSED SIDEBAR --- */
+    body.sidebar-collapsed #sidebar {
+      width: var(--sidebar-width-collapsed);
+    }
+    body.sidebar-collapsed .sidebar-brand-link span,
+    body.sidebar-collapsed .sidebar-menu span {
+      display: none;
+    }
+    body.sidebar-collapsed .sidebar-header {
+      justify-content: center;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    body.sidebar-collapsed .sidebar-brand-link i {
+      margin-right: 0;
+    }
+    body.sidebar-collapsed .sidebar-header .sidebar-brand-link {
+      margin-left: 0;
+    }
+    body.sidebar-collapsed .page-wrapper {
+      width: calc(100% - var(--sidebar-width-collapsed));
+    }
+    body.sidebar-collapsed .sidebar-toggle-btn.in-sidebar {
+      display: none;
+    }
+
+    /* --- START: NEW STYLES FOR DYNAMIC WISHLIST ICON --- */
+    .nav-icon-btn#wishlist-nav-icon.active i {
+        color: #ef4444; /* A vibrant red color */
+        font-weight: 900; /* Makes the Font Awesome icon solid */
+    }
+
+    @keyframes heartbeat {
+        0% { transform: scale(1); }
+        15% { transform: scale(1.3); }
+        30% { transform: scale(1); }
+        45% { transform: scale(1.3); }
+        60% { transform: scale(1); }
+    }
+
+    .heartbeat-animation {
+        animation: heartbeat 0.8s ease-in-out;
+    }
+    /* --- END: NEW STYLES --- */
+
+    /* --- END: UPDATED STYLES FOR COLLAPSED SIDEBAR --- */
+    
+    @media (max-width: 991.98px) {
+      .page-wrapper { width: 100%; }
+      #sidebar { 
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        transform: translateX(calc(-1 * var(--sidebar-width))); 
+        width: var(--sidebar-width); 
+      }
+      body.sidebar-mobile-open #sidebar { transform: translateX(0); box-shadow: 0 0 40px rgba(0,0,0,0.3); }
+      
+      body.sidebar-collapsed #sidebar { 
+        transform: translateX(calc(-1 * var(--sidebar-width))); 
+        width: var(--sidebar-width); 
+      }
+      body.sidebar-collapsed .page-wrapper { width: 100%; }
+      body.sidebar-collapsed .sidebar-brand-link span,
+      body.sidebar-collapsed .sidebar-menu span { display: inline; }
+      body.sidebar-collapsed .sidebar-header { justify-content: space-between; padding: 1.5rem 1.25rem; }
+      body.sidebar-collapsed .sidebar-toggle-btn.in-sidebar { display: flex; }
+    }
+
+    .sidebar-menu { 
+      flex-grow: 1; 
+      overflow-y: auto; 
+      padding: 1rem 0.5rem; 
+      max-height: calc(100vh - 81px); /* Limit height to viewport minus header */
+    }
+    
+    .sidebar-menu::-webkit-scrollbar { display:none; }
+    .sidebar-menu { -ms-overflow-style:none; scrollbar-width:none; }
+    .sidebar-menu ul { list-style:none; padding:0; margin:0; }
+    .sidebar-menu li { margin-bottom:0.25rem; position:relative; }
+    .sidebar-menu li a {
+      display:flex; align-items:center;
+      padding:1rem 1.25rem; margin:0.25rem 0.5rem;
+      color:var(--sidebar-text); text-decoration:none; white-space:nowrap; overflow:hidden;
+      border-radius:var(--border-radius); transition:all 0.3s ease; position:relative; font-weight:500;
+    }
+    .sidebar-menu li a:hover, .sidebar-menu li a.active { background:var(--sidebar-link-hover-bg); color:#fff; }
+    .sidebar-menu li a::before {
+      content:''; position:absolute; left:0; top:0; height:100%; width:4px;
+      background:var(--primary-color); border-radius:4px; opacity:0; transition:opacity 0.3s ease;
+    }
+    .sidebar-menu li a:hover::before, .sidebar-menu li a.active::before { opacity:1; }
+    .sidebar-menu li a i { font-size:1.25rem; min-width:50px; text-align:center; transition:all 0.3s ease; }
+
+    .top-navbar {
+      background-color: var(--card-bg);
+      box-shadow: var(--box-shadow);
+      padding: 0.75rem 1.5rem;
+      position: sticky; top: 0; z-index: 1045;
+    }
+    
+    .top-navbar-content { display:flex; align-items:center; width:100%; }
+    
+    .navbar-brand-logo {
+        display:flex;
+        align-items:center;
+        padding: 0.5rem 0.75rem;
+        font-weight: 700;
+        color: white;
+        text-decoration: none;
+        background: var(--gradient-primary);
+        border-radius: var(--border-radius);
+        box-shadow:0 4px 10px rgba(67,97,238,0.25);
+        transition: all 0.3s ease;
+    }
+    
+    .navbar-brand-logo:hover {
+        transform: translateY(-2px);
+        box-shadow:0 6px 15px rgba(67,97,238,0.4);
+    }
+    
+    .navbar-brand-logo i { font-size:1.2rem; margin-right:8px; }
+
+    .navbar-profile-image {
+      width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+      border: 2px solid var(--primary-color); margin-left: 0.5rem;
+      transition: all 0.3s ease;
+    }
+    
+    .navbar-profile-image:hover {
+      border-color: var(--accent-color);
+      transform: scale(1.05);
+    }
+
+    /* Buyer navigation styles */
+    .buyer-nav-links {
+      display: flex;
+      align-items: center;
+      margin-right: auto;
+      margin-left: 1rem;
+    }
+    
+    .buyer-nav-link {
+      padding: 0.5rem 1rem;
+      margin: 0 0.25rem;
+      color: #4a5568;
+      text-decoration: none;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      font-weight: 500;
+      position: relative;
+    }
+    
+    .buyer-nav-link:hover, .buyer-nav-link.active {
+      background: rgba(67, 97, 238, 0.1);
+      color: var(--primary-color);
+      transform: translateY(-2px);
+    }
+    
+    .buyer-nav-link.active::after {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      height: 6px;
+      background: var(--primary-color);
+      border-radius: 50%;
+    }
+    
+    .buyer-nav-link i {
+      margin-right: 0.5rem;
+    }
+    
+    @media (max-width: 991.98px) {
+      .buyer-nav-links {
+        display: none;
+      }
+    }
+
+    /* Enhanced icon buttons */
+    .nav-icon-btn { 
+      color:#4a5568; 
+      font-size:1.25rem; 
+      margin:0 0.25rem; 
+      padding:0.5rem; 
+      border-radius:50%; 
+      width:40px; 
+      height:40px; 
+      display:flex; 
+      align-items:center; 
+      justify-content:center; 
+      transition:all 0.3s ease; 
+      position:relative; 
+    }
+    
+    .nav-icon-btn:hover { 
+      background: rgba(67,97,238,0.1); 
+      color:var(--primary-color); 
+      transform: translateY(-2px); 
+    }
+    
+    .nav-icon-btn.active {
+      background: rgba(67,97,238,0.15);
+      color: var(--primary-color);
+    }
+    
+    .nav-icon-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      height: 6px;
+      background: var(--primary-color);
+      border-radius: 50%;
+    }
+
+    .card { box-shadow: var(--box-shadow); border:none; border-radius:var(--border-radius); }
+    .btn-primary { background: var(--gradient-primary); border:none; border-radius:8px; padding:0.6rem 1.5rem; font-weight:500; transition:all 0.2s ease; box-shadow:0 4px 10px rgba(67,97,238,0.25); }
+    .btn-primary:hover { background: var(--gradient-primary); transform: translateY(-2px); box-shadow:0 8px 15px rgba(67,97,238,0.35); }
+    .btn-outline-primary { border:2px solid var(--primary-color); color:var(--primary-color); border-radius:8px; padding:0.5rem 1.5rem; font-weight:500; transition:all 0.2s ease; }
+    .btn-outline-primary:hover { background:var(--primary-color); color:white; border-color:var(--primary-color); transform:translateY(-2px); box-shadow:0 8px 15px rgba(67,97,238,0.2); }
+
+    .input-group { border-radius:10px; overflow:hidden; box-shadow:0 4px 10px rgba(0,0,0,0.05); }
+    .form-control { border:none; padding:0.75rem 1rem; }
+    .form-control:focus { box-shadow:none; border-color:var(--primary-color); }
+    
+    .sidebar-toggle-btn {
+        background: transparent; border: none;
+        opacity: 0.8; transition: opacity 0.3s ease, color 0.3s ease, background-color 0.3s ease;
+        padding: 0.5rem; display: flex; align-items: center;
+        border-radius: 8px;
+    }
+    
+    .sidebar-toggle-btn.in-sidebar { color: #fff; }
+    .sidebar-toggle-btn.in-navbar { color: #4a5568; }
+    .sidebar-toggle-btn:hover { opacity: 1; }
+    .sidebar-toggle-btn.in-sidebar:hover { background-color: rgba(255,255,255,0.1); }
+    .sidebar-toggle-btn.in-navbar:hover { background-color: rgba(67, 97, 238, 0.1); }
+
+    .dropdown-menu { border:none; box-shadow: var(--box-shadow); border-radius: var(--border-radius); padding: 0.5rem; }
+    .dropdown-item { padding:0.7rem 1rem; border-radius:8px; transition:all 0.2s ease; }
+    .dropdown-item:hover { background: rgba(67,97,238,0.1); color: var(--primary-color); }
+    
+    .dropdown-item.active {
+      background: rgba(67,97,238,0.15);
+      color: var(--primary-color);
+      font-weight: 600;
+    }
+
+    .alert { border:none; border-radius:var(--border-radius); box-shadow:var(--box-shadow); }
+    .container-fluid { padding:1.5rem; flex:1; animation: fadeIn 0.5s ease; }
+    .badge { font-size:0.65rem; padding:0.35em 0.65em; }
+
+    /* Enhanced Footer */
+    .footer { 
+      background: linear-gradient(to right, #2d3748, #1a202c);
+      color: white; 
+      padding: 60px 0 20px; 
+      width: 100%; 
+      margin-top: auto;
+    }
+    
+    .footer h5 {
+      font-weight: 600;
+      margin-bottom: 1.2rem;
+      position: relative;
+      padding-bottom: 0.5rem;
+    }
+    
+    .footer h5::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 40px;
+      height: 2px;
+      background: var(--primary-color);
+    }
+    
+    .footer a { 
+      color: #cbd5e0; 
+      text-decoration: none; 
+      transition: all 0.3s ease;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    
+    .footer a:hover { 
+      color: white; 
+      transform: translateX(5px);
+    }
+    
+    .footer .social-icons a {
+      display: inline-block;
+      margin-right: 15px;
+      font-size: 1.2rem;
+      transition: all 0.3s ease;
+    }
+    
+    .footer .social-icons a:hover {
+      color: var(--primary-color);
+      transform: translateY(-3px);
+    }
+    
+    .footer .contact-info {
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+    }
+    
+    .footer .contact-info i {
+      margin-right: 10px;
+      color: var(--primary-color);
+      width: 20px;
+    }
+    
+    .footer-bottom {
+      border-top: 1px solid #4a5568;
+      padding-top: 20px;
+      margin-top: 30px;
+    }
+    
+    .payment-methods {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .payment-methods i {
+      font-size: 1.8rem;
+      color: #cbd5e0;
+    }
+
+    .product-card-hover { transition: transform .2s ease-in-out, box-shadow .2s ease-in-out; }
+    .product-card-hover:hover { transform: translateY(-5px); box-shadow: 0 4px 15px rgba(0,0,0,.15) !important; }
+
+    @keyframes fadeIn { from { opacity:0; transform: translateY(10px);} to { opacity:1; transform: translateY(0);} }
+    @keyframes pulse { 0% { transform: scale(1);} 50% { transform: scale(1.1);} 100% { transform: scale(1);} }
+    .pulse { animation: pulse 0.5s ease; }
+
+    .notification-dropdown {
+        width: 350px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .notification-item {
+        display: block;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #f1f1f1;
+        text-decoration: none;
+        color: #333;
+        white-space: normal;
+    }
+    
+    .notification-item:last-child {
+        border-bottom: none;
+    }
+    
+    .notification-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .notification-item .time {
+        font-size: 0.75rem;
+        color: #999;
+    }
+  </style>
+{% block head %}{% endblock %}
+</head>
+<body>
+  <div class="main-wrapper">
+    {% if session.user_id and session.user_role != 'buyer' %}
+      <aside id="sidebar">
+        <div class="sidebar-header">
+          <!-- NEW SIDEBAR TOGGLE BUTTON (for desktop) -->
+          <button class="sidebar-toggle-btn in-sidebar d-none d-lg-flex me-3" type="button" aria-label="Toggle sidebar">
+            <i class="fas fa-bars fa-fw"></i>
+          </button>
+
+          <a href="{{ url_for('home_bp.home_page') }}" class="sidebar-brand-link me-auto">
+            <i class="fas fa-bolt"></i> <span class="ms-2">ElectroMart</span>
+          </a>
+        </div>
+        <div class="sidebar-menu">
+          <ul>
+            {% if session.user_role == 'admin' %}
+              <li><a href="{{ url_for('admin_bp.dashboard') }}" class="{% if request.endpoint == 'admin_bp.dashboard' %}active{% endif %}"><i class="fas fa-tachometer-alt fa-fw"></i> <span>Dashboard</span></a></li>
+              <li><a href="{{ url_for('admin_bp.manage_cancellations_page') }}" class="{% if request.endpoint == 'admin_bp.manage_cancellations_page' %}active{% endif %}"><i class="fas fa-ban fa-fw"></i> <span>Cancellations</span></a></li>
+              <li><a href="{{ url_for('admin_bp.manage_categories_page') }}" class="{% if request.endpoint == 'admin_bp.manage_categories_page' %}active{% endif %}"><i class="fas fa-sitemap fa-fw"></i> <span>Manage Categories</span></a></li>
+              
+              <li><a href="{{ url_for('admin_bp.manage_discounts_page') }}" class="{% if request.endpoint == 'admin_bp.manage_discounts_page' %}active{% endif %}"><i class="fas fa-tags fa-fw"></i> <span>Manage Discounts</span></a></li>
+               <li><a href="{{ url_for('admin_bp.manage_carousel_page') }}" class="{% if 'manage_carousel' in request.endpoint %}active{% endif %}"><i class="fas fa-images fa-fw"></i> <span>Manage Carousel</span></a></li>
+              <li><a href="{{ url_for('admin_bp.admin_manage_orders_page') }}" class="{% if 'manage_orders' in request.endpoint %}active{% endif %}"><i class="fas fa-receipt fa-fw"></i><span>Manage Orders</span></a></li>          
+              <li><a href="{{ url_for('admin_bp.add_category_page') }}" class="{% if request.endpoint == 'admin_bp.add_category_page' %}active{% endif %}"><i class="fas fa-plus-circle fa-fw"></i> <span>Add Category</span></a></li>
+              <li><a href="{{ url_for('admin_bp.manage_products_page') }}" class="{% if request.endpoint == 'admin_bp.manage_products_page' %}active{% endif %}"><i class="fas fa-box-open fa-fw"></i> <span>Manage Products</span></a></li>
+              <li><a href="{{ url_for('admin_bp.manage_sellers_page') }}" class="{% if request.endpoint == 'admin_bp.manage_sellers_page' %}active{% endif %}"><i class="fas fa-users-cog fa-fw"></i> <span>Manage Sellers</span></a></li>
+              <li><a href="{{ url_for('admin_bp.manage_users_page') }}" class="{% if request.endpoint == 'admin_bp.manage_users_page' %}active{% endif %}"><i class="fas fa-user-edit fa-fw"></i> <span>Manage Users</span></a></li>
+            {% elif session.user_role == 'seller' %}
+              <li><a href="{{ url_for('seller_bp.dashboard') }}" class="{% if request.endpoint == 'seller_bp.dashboard' %}active{% endif %}"><i class="fas fa-tachometer-alt fa-fw"></i> <span>Dashboard</span></a></li>
+              <li><a href="{{ url_for('seller_bp.seller_manage_orders_page') }}" class="{% if request.endpoint == 'seller_bp.seller_manage_orders_page' %}active{% endif %}"><i class="fas fa-shipping-fast fa-fw"></i> <span>Manage Orders</span></a></li>          
+              <li><a href="{{ url_for('seller_bp.view_products_page') }}" class="{% if request.endpoint == 'seller_bp.view_products_page' %}active{% endif %}"><i class="fas fa-list-ul fa-fw"></i> <span>View My Products</span></a></li>
+              <li><a href="{{ url_for('seller_bp.add_product_page') }}" class="{% if request.endpoint == 'seller_bp.add_product_page' %}active{% endif %}"><i class="fas fa-plus-circle fa-fw"></i> <span>Add New Product</span></a></li>
+            {% endif %}
+          </ul>
+        </div>
+      </aside>
+    {% endif %}
+    
+    <div class="page-wrapper" {% if session.user_role == 'buyer' %}style="width: 100%;"{% endif %}>
+      <header class="top-navbar">
+        <div class="top-navbar-content">
+          {% if session.user_id and session.user_role != 'buyer' %}
+            <!-- This is the mobile/tablet toggle button -->
+            <button class="btn nav-icon-btn me-2 d-lg-none sidebar-toggle-btn in-navbar" type="button"><i class="fas fa-bars"></i></button>
+          {% endif %}
+          
+          <a href="{{ url_for('home_bp.home_page') if session.user_id else url_for('landing') }}" class="navbar-brand-logo {% if session.user_id and session.user_role != 'buyer' %}d-lg-none{% endif %}">
+            <i class="fas fa-bolt"></i> ElectroMart
+          </a>
+          
+          <!-- Buyer navigation links in navbar -->
+          {% if session.user_id and session.user_role == 'buyer' %}
+          <div class="buyer-nav-links">
+           
+          </div>
+          {% endif %}
+          
+          <form class="d-none d-md-flex ms-3 flex-grow-1" action="{{ url_for('home_bp.search_page') }}" method="GET">
+            <div class="input-group" style="max-width: 520px; margin: 0 auto;">
+              <input class="form-control" type="search" name="q" placeholder="Search for products..." aria-label="Search">
+              <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i></button>
+            </div>
+          </form>
+          
+          <!-- Home Icon Button -->
+          <a href="{{ url_for('home_bp.home_page') }}" class="nav-icon-btn me-2 {% if request.endpoint == 'home_bp.home_page' or request.endpoint == 'landing' %}active{% endif %}" data-bs-toggle="tooltip" title="Home">
+            <i class="fas fa-home"></i>
+          </a>
+          
+          <div class="ms-auto d-flex align-items-center">
+            {% if session.user_id %}
+              {% if session.user_role == 'buyer' %}
+                <a class="nav-icon-btn position-relative me-1 {% if request.endpoint == 'buyer_bp.cart_page' %}active{% endif %}" href="{{ url_for('buyer_bp.cart_page') }}" id="cart-icon" data-bs-toggle="tooltip" title="Cart">
+                  <i class="fas fa-shopping-cart"></i>
+                  <span class="badge rounded-pill bg-danger position-absolute top-0 start-100 translate-middle" id="cart-item-count" style="display:none"></span>
+                </a>
+                <a class="nav-icon-btn me-1 {% if request.endpoint == 'buyer_bp.wishlist_page' %}active{% endif %}" href="{{ url_for('buyer_bp.wishlist_page') }}" id="wishlist-nav-icon" data-bs-toggle="tooltip" title="Wishlist">                
+                  <i class="fas fa-heart"></i>
+                </a>
+              {% endif %}
+              
+              <div class="dropdown me-1">
+                <button class="btn nav-icon-btn position-relative" id="notification-bell" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge rounded-pill bg-danger position-absolute top-0 start-100 translate-middle" id="notification-count" style="display: none;"></span>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end p-0 notification-dropdown" aria-labelledby="notification-bell">
+                    <div class="d-flex justify-content-between align-items-center p-2 bg-light border-bottom">
+                        <h6 class="mb-0">Notifications</h6>
+                    </div>
+                    <div id="notification-list">
+                        <!-- Notifications loaded by JS -->
+                    </div>
+                </div>
+              </div>
+
+              <div class="dropdown">
+                <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                  <img id="navbar-profile-img" src="https://via.placeholder.com/40" class="navbar-profile-image" alt="User">
+                  <span class="ms-2 d-none d-sm-inline fw-medium" style="color:#4a5568;">
+                    {{ session['full_name'].split()[0] if session.get('full_name') else 'Account' }}
+                  </span>
+                </a>
+      <!-- START: This is the NEW, CORRECTED dropdown menu code -->
+<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+    <li><h6 class="dropdown-header">Welcome, {{ session['full_name'].split()[0] if session.get('full_name') else 'User' }}</h6></li>
+
+    {% if session.user_role == 'admin' %}
+        <li><a class="dropdown-item {% if 'profile' in request.endpoint %}active{% endif %}" href="{{ url_for('admin_bp.admin_profile_page') }}"><i class="fas fa-user-cog fa-fw me-2"></i>My Profile</a></li>
+        <li><a class="dropdown-item {% if 'change_password' in request.endpoint %}active{% endif %}" href="{{ url_for('admin_bp.admin_change_password_page') }}"><i class="fas fa-tachometer-alt fa-fw me-2"></i>Change Password</a></li>
+
+
+    {% elif session.user_role == 'seller' %}
+        <li><a class="dropdown-item {% if 'profile' in request.endpoint %}active{% endif %}" href="{{ url_for('seller_bp.edit_profile_page') }}"><i class="fas fa-user-cog fa-fw me-2"></i>Edit Profile</a></li>
+        <li><a class="dropdown-item {% if 'change_password' in request.endpoint %}active{% endif %}" href="{{ url_for('seller_bp.change_password_page') }}"><i class="fas fa-key fa-fw me-2"></i>Change Password</a></li>
+
+    {% elif session.user_role == 'buyer' %}
+        <li><a class="dropdown-item {% if request.endpoint == 'buyer_bp.dashboard' %}active{% endif %}" href="{{ url_for('buyer_bp.dashboard') }}"><i class="fas fa-tachometer-alt fa-fw me-2"></i>My Dashboard</a></li>
+        <li><a class="dropdown-item {% if request.endpoint == 'buyer_bp.profile' %}active{% endif %}" href="{{ url_for('buyer_bp.profile') }}"><i class="fas fa-user-circle fa-fw me-2"></i>My Profile</a></li>
+        <li><a class="dropdown-item {% if request.endpoint == 'buyer_bp.order_history' %}active{% endif %}" href="{{ url_for('buyer_bp.order_history') }}"><i class="fas fa-history fa-fw me-2"></i>Order History</a></li>
+        <li><a class="dropdown-item {% if request.endpoint == 'buyer_bp.cart_page' %}active{% endif %}" href="{{ url_for('buyer_bp.cart_page') }}"><i class="fas fa-shopping-cart fa-fw me-2"></i>My Cart</a></li>
+        <li><a class="dropdown-item {% if request.endpoint == 'buyer_bp.wishlist_page' %}active{% endif %}" href="{{ url_for('buyer_bp.wishlist_page') }}"><i class="fas fa-heart fa-fw me-2"></i>My Wishlist</a></li>
+    {% endif %}
+
+    <li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="{{ url_for('auth_bp.logout') }}"><i class="fas fa-sign-out-alt fa-fw me-2"></i>Logout</a></li>
+</ul>
+<!-- END: This is the NEW, CORRECTED dropdown menu code -->
+              </div>
+            {% else %}
+              <a href="{{ url_for('auth_bp.login') }}" class="btn btn-outline-primary me-2">Login</a>
+              <a href="{{ url_for('auth_bp.register') }}" class="btn btn-primary">Register</a>
+            {% endif %}
+          </div>
+        </div>
+      </header>
+
+      <main class="flex-grow-1">
+        <div class="container-fluid p-4">
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                  {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+          {% block content %}{% endblock %}
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-3 col-md-6 mb-4 mb-md-0">
+          <h5>About ElectroMart</h5>
+          <p>Your one-stop shop for the latest and greatest in electronics. We offer quality products with customer satisfaction as our top priority since 2018.</p>
+          <div class="social-icons mt-3">
+            <a href="#"><i class="fab fa-facebook-f"></i></a>
+            <a href="#"><i class="fab fa-twitter"></i></a>
+            <a href="#"><i class="fab fa-instagram"></i></a>
+            <a href="#"><i class="fab fa-linkedin-in"></i></a>
+          </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4 mb-md-0">
+          <h5>Quick Links</h5>
+          <ul class="list-unstyled">
+            <li><a href="{{ url_for('home_bp.home_page') }}">Home</a></li>
+            <li><a href="#">Featured Products</a></li>
+            <li><a href="#">New Arrivals</a></li>
+            <li><a href="#">Discounts & Deals</a></li>
+            <li><a href="#">Brands</a></li>
+          </ul>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4 mb-md-0">
+          <h5>Customer Service</h5>
+          <ul class="list-unstyled">
+            <li><a href="#">Contact Us</a></li>
+            <li><a href="#">FAQ</a></li>
+            <li><a href="#">Shipping Information</a></li>
+            <li><a href="#">Returns & Refunds</a></li>
+            <li><a href="#">Track Order</a></li>
+          </ul>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4 mb-md-0">
+          <h5>Contact Info</h5>
+          <div class="contact-info">
+            <i class="fas fa-map-marker-alt"></i>
+            <span>123 Tech Street, Digital City, DC 54321</span>
+          </div>
+          <div class="contact-info">
+            <i class="fas fa-phone"></i>
+            <span>+1 (555) 123-4567</span>
+          </div>
+          <div class="contact-info">
+            <i class="fas fa-envelope"></i>
+            <span>support@electromart.com</span>
+          </div>
+          
+          <h6 class="mt-4">We Accept</h6>
+          <div class="payment-methods">
+            <i class="fab fa-cc-visa"></i>
+            <i class="fab fa-cc-mastercard"></i>
+            <i class="fab fa-cc-amex"></i>
+            <i class="fab fa-cc-paypal"></i>
+          </div>
+        </div>
+      </div>
+      
+      <div class="footer-bottom text-center pt-3 mt-4">
+        <p>&copy; 2024 ElectroMart. All Rights Reserved. | <a href="#">Privacy Policy</a> | <a href="#">Terms of Service</a></p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <!-- Global scripts -->
+  <script>
+    function getProfileApiEndpoint() {
+      const userRole = "{{ session.user_role }}";
+      if (userRole === 'admin') return "{{ url_for('admin_bp.api_admin_profile') }}";
+      if (userRole === 'seller') return "{{ url_for('seller_bp.api_seller_profile') }}";
+      if (userRole === 'buyer') return "{{ url_for('buyer_bp.api_profile_handler') }}";
+      return null;
+    }
+
+    function updateNavbarProfileImage() {
+      if (!"{{ session.user_id }}") return;
+      const endpoint = getProfileApiEndpoint();
+      if (!endpoint) return;
+      $.ajax({
+        url: endpoint,
+        method: 'GET',
+        success: function(data) {
+          const profileImg = $('#navbar-profile-img');
+          if (data && data.profile_image_url) {
+            profileImg.attr('src', data.profile_image_url);
+          } else {
+            profileImg.attr('src', 'https://via.placeholder.com/40');
+          }
+        }
+      });
+    }
+
+    function updateCartCount() {
+      {% if session['user_role'] == 'buyer' %}
+      $.ajax({
+        url: "{{ url_for('buyer_bp.api_get_cart_count') }}",
+        method: 'GET',
+        success: function(response) {
+          const count = response.item_count || 0;
+          const cartBadge = $('#cart-item-count');
+          const prev = parseInt(cartBadge.attr('data-prev') || '0', 10);
+          if (count > 0) cartBadge.text(count).show();
+          else cartBadge.hide();
+          if (count > prev) {
+            $('#cart-icon').addClass('pulse');
+            setTimeout(() => $('#cart-icon').removeClass('pulse'), 500);
+          }
+          cartBadge.attr('data-prev', count);
+        }
+      });
+      {% endif %}
+    }
+
+    function updateNotificationUI() {
+        if (!"{{ session.user_id }}") return;
+
+        const notifList = $('#notification-list');
+        const notifCountBadge = $('#notification-count');
+        
+        $.ajax({
+            url: "/api/notifications/unread",
+            method: 'GET',
+            success: function(notifications) {
+                if (notifications.length > 0) {
+                    notifCountBadge.text(notifications.length).show();
+                } else {
+                    notifCountBadge.hide();
+                }
+
+                notifList.empty();
+                if (notifications.length > 0) {
+                    let unreadIds = notifications.map(n => n.notification_id);
+                    notifList.data('unread-ids', unreadIds); 
+
+                    notifications.forEach(function(notif) {
+                        const notifHtml = `<a href="${notif.link_url || '#'}" class="notification-item"><div>${notif.message}</div><div class="time">${notif.created_at}</div></a>`;
+                        notifList.append(notifHtml);
+                    });
+                } else {
+                    notifList.data('unread-ids', []);
+                    notifList.html('<div class="p-3 text-center text-muted">No new notifications</div>');
+                }
+            }
+        });
+    }
+
+    $(document).ready(function () {
+      const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      tooltipTriggerList.map((el) => new bootstrap.Tooltip(el));
+
+      const body = $('body');
+      
+      // Select ALL sidebar toggle buttons
+      const sidebarToggleBtns = $('.sidebar-toggle-btn');
+
+      sidebarToggleBtns.on('click', function() {
+        if ($(window).width() < 992) {
+          // Mobile behavior: slide in/out from the side
+          body.toggleClass('sidebar-mobile-open');
+        } else {
+          // Desktop behavior: collapse/expand
+          body.toggleClass('sidebar-collapsed');
+          // Save the state to localStorage to remember it on the next page load
+          localStorage.setItem('sidebarState', body.hasClass('sidebar-collapsed') ? 'collapsed' : 'expanded');
+        }
+      });
+
+      // On page load, check for the saved desktop state
+      if ($(window).width() >= 992 && localStorage.getItem('sidebarState') === 'collapsed') {
+        body.addClass('sidebar-collapsed');
+      }
+
+      $('#notification-bell').on('show.bs.dropdown', function () {
+          const notifList = $('#notification-list');
+          const unreadIds = notifList.data('unread-ids') || [];
+          
+          if (unreadIds.length > 0) {
+              $.ajax({
+                  url: "/api/notifications/mark-read",
+                  method: 'POST',
+                  contentType: 'application/json',
+                  data: JSON.stringify({ notification_ids: unreadIds }),
+                  success: function() {
+                      $('#notification-count').hide();
+                      notifList.data('unread-ids', []);
+                  }
+              });
+          }
+      });
+      
+      function updateWishlistStatus() {
+        // This function will only run if the user is a buyer
+        {% if session['user_role'] == 'buyer' %}
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_get_wishlist') }}", // We get the whole wishlist
+            method: 'GET',
+            success: function(wishlistItems) {
+                const wishlistIcon = $('#wishlist-nav-icon');
+                // Check if the returned list has any items
+                if (wishlistItems && wishlistItems.length > 0) {
+                    wishlistIcon.addClass('active');
+                } else {
+                    wishlistIcon.removeClass('active');
+                }
+            }
+        });
+        {% endif %}
+      }
+
+      {% if session.user_id %}
+        updateNavbarProfileImage();
+        updateCartCount();
+        updateNotificationUI();
+        setInterval(updateNotificationUI, 30000);
+        // Check wishlist status when page loads
+        updateWishlistStatus();
+
+        // Listen for a custom event to trigger the animation
+        $(document).on('wishlistUpdated', function() {
+            updateWishlistStatus(); // Recalculate color
+            $('#wishlist-nav-icon').addClass('heartbeat-animation');
+            setTimeout(() => {
+                $('#wishlist-nav-icon').removeClass('heartbeat-animation');
+            }, 800); // Duration of the animation
+        });
+      {% endif %}
+    });
+  </script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

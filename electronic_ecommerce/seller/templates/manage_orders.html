@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}Manage My Orders{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .table-hover tbody tr {
+        cursor: pointer;
+    }
+    .status-badge {
+        font-size: 0.8em;
+        font-weight: 600;
+        padding: 0.4em 0.7em;
+    }
+    .status-confirmed { background-color: #0d6efd; }
+    .status-processing { background-color: #ffc107; color: #000 !important; }
+    .status-shipped { background-color: #fd7e14; }
+    .status-delivered { background-color: #198754; }
+    .status-cancelled { background-color: #dc3545; }
+    .table-danger-light {
+        --bs-table-bg: #f8d7da;
+        --bs-table-border-color: #f1aeb5;
+        --bs-table-color: #58151c;
+    }
+    .table-hover .table-danger-light:hover {
+        --bs-table-hover-bg: #e6c3c6;
+    }
+    .order-product-images {
+        display: flex;
+        gap: 4px;
+    }
+    .order-product-images img {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0"><i class="fas fa-box-open me-2"></i>Manage Orders</h2>
+        <!-- RESULTS COUNT DISPLAY AREA -->
+        <small class="text-muted" id="results-count">Loading...</small>
+    </div>
+
+    <div id="action-message" class="mb-3"></div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form id="filter-form" class="row g-3 align-items-center mb-4">
+                <div class="col-md-5">
+                    <label for="status-filter" class="form-label visually-hidden">Filter by Status</label>
+                    <select id="status-filter" class="form-select">
+                        <option value="">All Statuses</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="processing">Processing</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label for="search-input" class="form-label visually-hidden">Search</label>
+                    <input type="search" id="search-input" class="form-control" placeholder="Search by Order #, Buyer, or Product...">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="orders-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 15%;">Product(s)</th>
+                            <th>Order #</th>
+                            <th>Date</th>
+                            <th>Buyer Name</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-table-body">
+                        <!-- JS will populate this -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="loading-spinner" class="text-center my-5" style="display: none;">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+            
+            <nav id="pagination-container" class="mt-4 d-flex justify-content-center"></nav>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Order Details -->
+<div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title" id="orderDetailsModalLabel">Order Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modal-body-content"></div>
+            <div class="modal-footer" id="modal-footer-actions"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    // --- 1. REFERENCES & STATE ---
+    const tableBody = $('#orders-table-body');
+    const spinner = $('#loading-spinner');
+    const paginationContainer = $('#pagination-container');
+    const resultsCount = $('#results-count'); // Reference for the count display
+    const statusFilter = $('#status-filter');
+    const searchInput = $('#search-input');
+    const actionMessageDiv = $('#action-message');
+    const modal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
+    const modalBody = $('#modal-body-content');
+    const modalFooter = $('#modal-footer-actions');
+
+    // --- 2. CORE DATA LOADING FUNCTION ---
+    function loadOrders(page = 1) {
+        spinner.show();
+        tableBody.empty();
+        paginationContainer.empty();
+        resultsCount.text('Loading...'); // Show loading text
+
+        const search = searchInput.val();
+        const status = statusFilter.val();
+
+        let apiUrl = `{{ url_for('seller_bp.api_get_seller_orders') }}?page=${page}`;
+        if (search) apiUrl += `&search=${search}`;
+        if (status) apiUrl += `&status=${status}`;
+
+        $.ajax({
+            url: apiUrl,
+            method: 'GET',
+            success: function(response) {
+                renderTableAndCount(response); // Pass the full response
+                renderPagination(response.total_pages, response.current_page);
+            },
+            error: function() {
+                resultsCount.text('Error!');
+                tableBody.html('<tr><td colspan="6" class="text-center text-danger">Could not load orders.</td></tr>');
+            },
+            complete: function() {
+                spinner.hide();
+            }
+        });
+    }
+
+    // --- 3. RENDERING FUNCTIONS ---
+    function renderTableAndCount(data) {
+        // Correctly update the results count first
+        resultsCount.text(`${data.total_count} Orders Found`);
+        
+        tableBody.empty(); // Clear previous results
+        const orders = data.orders;
+
+        if (!orders || orders.length === 0) {
+            tableBody.html('<tr><td colspan="6" class="text-center">No orders found matching your criteria.</td></tr>');
+            return;
+        }
+
+        orders.forEach(order => {
+            const statusClass = `status-${order.status.toLowerCase()}`;
+            const rowClass = order.cancellation_status === 'pending' ? 'table-danger-light' : '';
+            
+            let imagesHtml = '<div class="order-product-images">';
+            if (order.product_images && order.product_images.length > 0) {
+                order.product_images.slice(0, 3).forEach(imgUrl => {
+                    imagesHtml += `<img src="/${imgUrl}" alt="Product Image">`;
+                });
+            } else {
+                imagesHtml += `<img src="{{ url_for('static', filename='images/placeholder.png') }}" alt="No Image">`;
+            }
+            imagesHtml += '</div>';
+
+            const row = `
+                <tr data-order-id="${order.order_id}" class="${rowClass}">
+                    <td>${imagesHtml}</td>
+                    <td class="fw-bold">${order.order_number}</td>
+                    <td>${order.order_date}</td>
+                    <td>${order.buyer_name}</td>
+                    <td>$${order.total_amount.toFixed(2)}</td>
+                    <td>
+                        <span class="badge rounded-pill text-white status-badge ${statusClass}">${order.status}</span>
+                        ${order.cancellation_status === 'pending' ? '<br><small class="text-danger fst-italic">Cancellation Requested</small>' : ''}
+                    </td>
+                </tr>
+            `;
+            tableBody.append(row);
+        });
+    }
+
+    function renderPagination(totalPages, currentPage) {
+        paginationContainer.empty();
+        if (totalPages <= 1) return;
+        let paginationHtml = '<ul class="pagination">';
+        paginationHtml += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a></li>`;
+        for (let i = 1; i <= totalPages; i++) {
+            paginationHtml += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+        }
+        paginationHtml += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage + 1}">Next</a></li>`;
+        paginationHtml += '</ul>';
+        paginationContainer.html(paginationHtml);
+    }
+    
+    // --- 4. EVENT LISTENERS ---
+    $('#filter-form').on('submit', function(e) {
+        e.preventDefault();
+        loadOrders(1);
+    });
+
+    paginationContainer.on('click', '.page-link', function(e) {
+        e.preventDefault();
+        const page = $(this).data('page');
+        if (page) loadOrders(page);
+    });
+
+    tableBody.on('click', 'tr', function() {
+        const orderId = $(this).data('order-id');
+        if (orderId) showOrderDetails(orderId);
+    });
+
+    // --- 5. MODAL LOGIC (Your existing code is great and remains unchanged) ---
+    function showOrderDetails(orderId) {
+        modalBody.html('<div class="text-center p-5"><div class="spinner-border"></div></div>');
+        modalFooter.empty();
+        modal.show();
+        $.get(`/seller/api/order/${orderId}`, function(data) {
+            const details = data.details; const items = data.items; const cancellation = data.cancellation;
+            let itemsHtml = '<h6 class="mb-3">Items in this Order</h6><ul class="list-group mb-4">';
+            items.forEach(item => {
+                itemsHtml += `<li class="list-group-item d-flex justify-content-between align-items-center"><div>${item.product_name} (SKU: ${item.sku})<br><small class="text-muted">Quantity: ${item.quantity} x $${item.unit_price.toFixed(2)}</small></div><span class="fw-bold">$${item.total_price.toFixed(2)}</span></li>`;
+            });
+            itemsHtml += '</ul>';
+            let cancellationHtml = '';
+            if (cancellation && cancellation.status === 'pending') {
+                const reasonText = cancellation.reason.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                cancellationHtml = `<div class="alert alert-warning"><h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Action Required: Cancellation Request</h5><p>The buyer has requested to cancel this order.</p><p class="fst-italic"><strong>Reason:</strong> ${reasonText}</p>${cancellation.comments ? `<p class="fst-italic"><strong>Comments:</strong> "${cancellation.comments}"</p>` : ''}</div>`;
+            }
+            const detailsHtml = `${cancellationHtml}<div class="row"><div class="col-md-6"><strong>Order #:</strong> ${details.order_number}<br><strong>Date:</strong> ${details.order_date}<br><strong class="me-2">Status:</strong><span class="badge rounded-pill text-white status-badge status-${details.status.toLowerCase()}">${details.status}</span></div><div class="col-md-6"><strong>Buyer:</strong> ${details.buyer_name}<br><strong>Email:</strong> ${details.buyer_email}</div></div><hr><h6>Shipping Address</h6><address>${details.shipping_address.replace(/, /g, '<br>')}</address><hr>${itemsHtml}`;
+            modalBody.html(detailsHtml);
+            let footerHtml = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>';
+            if (cancellation && cancellation.status === 'pending') {
+                footerHtml += `<button class="btn btn-outline-secondary cancellation-action-btn" data-request-id="${cancellation.request_id}" data-action="rejected">Reject Cancellation</button><button class="btn btn-danger cancellation-action-btn" data-request-id="${cancellation.request_id}" data-action="approved">Approve Cancellation</button>`;
+            } else {
+                const currentStatus = details.status.toLowerCase();
+                if (currentStatus === 'confirmed') footerHtml += `<button class="btn btn-primary status-update-btn" data-order-id="${orderId}" data-new-status="processing">Accept & Process</button>`;
+                else if (currentStatus === 'processing') footerHtml += `<button class="btn btn-warning status-update-btn" data-order-id="${orderId}" data-new-status="shipped">Mark as Shipped</button>`;
+                else if (currentStatus === 'shipped') footerHtml += `<button class="btn btn-success status-update-btn" data-order-id="${orderId}" data-new-status="delivered">Mark as Delivered</button>`;
+            }
+            modalFooter.html(footerHtml);
+        });
+    }
+    
+    modalFooter.on('click', '.cancellation-action-btn', function() {
+        const btn = $(this); const requestId = btn.data('request-id'); const action = btn.data('action');
+        if (!confirm(`Are you sure you want to ${action} this cancellation request?`)) return;
+        btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+        $.ajax({
+            url: "{{ url_for('seller_bp.api_handle_cancellation') }}", method: 'POST', contentType: 'application/json', data: JSON.stringify({ request_id: requestId, action: action }),
+            success: function(response) {
+                modal.hide();
+                actionMessageDiv.html(`<div class="alert alert-success alert-dismissible fade show">${response.message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`);
+                loadOrders();
+            },
+            error: function(xhr) {
+                modalBody.prepend(`<div class="alert alert-danger">${xhr.responseJSON.error}</div>`);
+                btn.prop('disabled', false).html(action === 'approved' ? 'Approve Cancellation' : 'Reject Cancellation');
+            }
+        });
+    });
+    
+    modalFooter.on('click', '.status-update-btn', function() {
+        const orderId = $(this).data('order-id'); const newStatus = $(this).data('new-status');
+        if (!confirm(`Update order to "${newStatus}"?`)) return;
+        $.ajax({
+            url: "{{ url_for('seller_bp.api_update_order_status') }}", method: 'POST', contentType: 'application/json', data: JSON.stringify({ order_id: orderId, new_status: newStatus }),
+            success: function(response) {
+                modal.hide();
+                actionMessageDiv.html(`<div class="alert alert-success alert-dismissible fade show">${response.message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`);
+                loadOrders();
+            },
+            error: function(xhr) { alert(`Failed to update status: ${xhr.responseJSON.error}`); }
+        });
+    });
+
+    // --- 6. INITIAL PAGE LOAD ---
+    loadOrders();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Order Details - {{ order_data.details.order_number }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Action Message Placeholder -->
+    <div id="action-message" class="mb-3"></div>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2">Order Details</h1>
+            <p class="text-muted">Order #{{ order_data.details.order_number }}</p>
+        </div>
+        <a href="{{ url_for('buyer_bp.order_history') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Order History
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <div class="row">
+                <div class="col-md-4">
+                    <strong>Order Date:</strong> {{ order_data.details.order_date.strftime('%Y-%m-%d %H:%M') }}
+                </div>
+                <div class="col-md-4">
+                    <strong>Sold by:</strong> {{ order_data.details.business_name }}
+                </div>
+                <div class="col-md-4">
+                    <strong>Total Amount:</strong> ${{ "%.2f"|format(order_data.details.total_amount) }}
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Left Side: Items in this Order -->
+                <div class="col-md-8">
+                    <h5 class="mb-3">Items in this Order</h5>
+                    <ul class="list-group list-group-flush">
+                        {% for item in order_data['items'] %}
+                        <li class="list-group-item d-flex align-items-center">
+                            <img src="{{ '/' + item.image_url if item.image_url else url_for('static', filename='images/placeholder.png') }}" 
+                                 alt="{{ item.name }}" 
+                                 class="img-fluid rounded me-3" 
+                                 style="width: 75px; height: 75px; object-fit: cover;">
+                            <div class="flex-grow-1">
+                                <a href="{{ url_for('home_bp.product_details_page', product_id=item.product_id) }}" class="text-decoration-none">
+                                    <h6 class="mb-1">{{ item.name }}</h6>
+                                </a>
+                                <small class="text-muted">Quantity: {{ item.quantity }}</small>
+                            </div>
+                            <div class="text-end">
+                                <span>${{ "%.2f"|format(item.total_price) }}</span><br>
+                                <small class="text-muted">(${{ "%.2f"|format(item.unit_price) }} each)</small>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <!-- Right Side: Shipping and Payment Info -->
+                <div class="col-md-4">
+                    <h5 class="mb-3">Shipping Address</h5>
+                    <p>{{ order_data.details.shipping_address.replace(',', '<br>')|safe }}</p>
+                    <hr>
+                    <h5 class="mb-3">Payment Summary</h5>
+                    <dl class="row">
+                        <dt class="col-sm-6">Subtotal:</dt>
+                        <dd class="col-sm-6 text-end">${{ "%.2f"|format(order_data.details.subtotal_amount) }}</dd>
+
+                        <dt class="col-sm-6">Shipping:</dt>
+                        <dd class="col-sm-6 text-end">${{ "%.2f"|format(order_data.details.shipping_amount) }}</dd>
+
+                        <dt class="col-sm-6">Tax:</dt>
+                        <dd class="col-sm-6 text-end">${{ "%.2f"|format(order_data.details.tax_amount) }}</dd>
+                        
+                        <dt class="col-sm-6 border-top pt-2"><strong>Total:</strong></dt>
+                        <dd class="col-sm-6 text-end border-top pt-2"><strong>${{ "%.2f"|format(order_data.details.total_amount) }}</strong></dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================================== -->
+        <!-- START: NEW CANCELLATION ACTION FOOTER -->
+        <!-- ================================================================== -->
+        <div class="card-footer text-end" id="order-actions-footer">
+            {% set cancellable_statuses = ['confirmed', 'processing'] %}
+            {% if order_data.details.status in cancellable_statuses and order_data.details.cancellation_status != 'pending' %}
+                <button class="btn btn-danger" id="cancel-request-btn"
+                        data-order-id="{{ order_data.details.order_id }}"
+                        data-order-number="{{ order_data.details.order_number }}"
+                        data-seller-id="{{ order_data.details.seller_id }}">
+                    <i class="fas fa-times-circle me-2"></i>Request Cancellation
+                </button>
+            {% elif order_data.details.cancellation_status == 'pending' %}
+                <p class="text-muted mb-0 fst-italic">A cancellation request for this order is currently pending review by the seller.</p>
+            {% endif %}
+        </div>
+        <!-- ================================================================== -->
+        <!-- END: NEW CANCELLATION ACTION FOOTER -->
+        <!-- ================================================================== -->
+    </div>
+</div>
+
+<!-- Re-using the same cancellation modal from the dashboard -->
+<div class="modal fade" id="cancelOrderModal" tabindex="-1" aria-labelledby="cancelOrderModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cancelOrderModalLabel">Request Order Cancellation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>You are requesting to cancel order <strong id="modal-order-number"></strong>. Please provide a reason for your request.</p>
+                <form id="cancel-order-form">
+                    <input type="hidden" id="modal-order-id">
+                    <input type="hidden" id="modal-seller-id">
+                    <div class="mb-3">
+                        <label for="cancel-reason" class="form-label">Reason</label>
+                        <select class="form-select" id="cancel-reason" required>
+                            <option value="" selected disabled>-- Select a reason --</option>
+                            <option value="ordered_by_mistake">Ordered by mistake</option>
+                            <option value="item_not_needed_anymore">Item not needed anymore</option>
+                            <option value="found_better_price">Found a better price elsewhere</option>
+                            <option value="other">Other (please specify below)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cancel-comments" class="form-label">Additional Comments (Optional)</label>
+                        <textarea class="form-control" id="cancel-comments" rows="3"></textarea>
+                    </div>
+                    <div id="cancel-form-message"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger" id="submit-cancel-request-btn">Submit Request</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// This script is nearly identical to the one in buyer_dashboard.html,
+// ensuring the cancellation logic works on both pages.
+$(document).ready(function() {
+    const cancelModal = new bootstrap.Modal(document.getElementById('cancelOrderModal'));
+    const actionMessageDiv = $('#action-message');
+
+    // Open the modal when the main "Request Cancellation" button is clicked
+    $('#cancel-request-btn').on('click', function() {
+        const orderId = $(this).data('order-id');
+        const orderNumber = $(this).data('order-number');
+        const sellerId = $(this).data('seller-id');
+        
+        $('#modal-order-id').val(orderId);
+        $('#modal-seller-id').val(sellerId);
+        $('#modal-order-number').text(orderNumber);
+        
+        $('#cancel-order-form')[0].reset();
+        $('#cancel-form-message').html('');
+        
+        cancelModal.show();
+    });
+
+    // Handle the submission of the cancellation request form
+    $('#submit-cancel-request-btn').on('click', function() {
+        const formMessageDiv = $('#cancel-form-message');
+        const reason = $('#cancel-reason').val();
+        
+        if (!reason) {
+            formMessageDiv.html('<div class="alert alert-danger">Please select a reason.</div>');
+            return;
+        }
+
+        const requestData = {
+            order_id: $('#modal-order-id').val(),
+            seller_id: $('#modal-seller-id').val(),
+            reason: reason,
+            comments: $('#cancel-comments').val()
+        };
+
+        $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Submitting...');
+
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_request_cancellation') }}",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(requestData),
+            success: function(response) {
+                cancelModal.hide();
+                // Hide the main button and show a success message
+                $('#order-actions-footer').html('<p class="text-muted mb-0 fst-italic">Cancellation request sent successfully. It is now pending review.</p>');
+                actionMessageDiv.html(`<div class="alert alert-success alert-dismissible fade show" role="alert">${response.message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`);
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "An unexpected error occurred.";
+                formMessageDiv.html(`<div class="alert alert-danger">${errorMsg}</div>`);
+            },
+            complete: function() {
+                 $('#submit-cancel-request-btn').prop('disabled', false).text('Submit Request');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

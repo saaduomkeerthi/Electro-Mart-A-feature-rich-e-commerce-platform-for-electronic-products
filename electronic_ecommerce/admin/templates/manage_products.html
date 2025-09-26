@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Products{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    /* Style to truncate long product names and show tooltip */
+    .product-name-truncate {
+        display: block;
+        max-width: 300px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    /* Style for the compact button groups */
+    .action-btn-group .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h2 mb-0">All Products on Platform</h1>
+        <small id="results-count" class="text-muted"></small>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form id="filter-form" class="row g-3 align-items-center mb-4">
+                <div class="col-md-5">
+                    <label for="category-filter" class="form-label visually-hidden">Filter by Category</label>
+                    <select id="category-filter" class="form-select">
+                        <option value="">All Categories</option>
+                        <!-- Categories will be loaded by JavaScript -->
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label for="search-input" class="form-label visually-hidden">Search</label>
+                    <input type="search" id="search-input" class="form-control" placeholder="Search by Product Name or SKU...">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 5%;">S.No</th>
+                            <th style="width: 25%;">Product Name</th>
+                            <th>Seller</th>
+                            <th class="text-end">Price</th>
+                            <th class="text-center">Stock</th>
+                            <th class="text-center">Approved</th>
+                            <th class="text-center">Active</th>
+                            <th class="text-center">Featured</th>
+                            <th class="text-center">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody id="products-table-body"></tbody>
+                </table>
+            </div>
+            
+            <div id="loading-spinner" class="text-center mt-3" style="display: none;">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+
+            <nav id="pagination-container" class="mt-4 d-flex justify-content-center"></nav>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    
+    // --- 1. REFERENCES & STATE ---
+    const tableBody = $('#products-table-body');
+    const spinner = $('#loading-spinner');
+    const paginationContainer = $('#pagination-container');
+    const categoryFilter = $('#category-filter');
+    const searchInput = $('#search-input');
+    const resultsCount = $('#results-count');
+
+    // --- 2. CORE DATA LOADING FUNCTION ---
+    function loadProducts(page = 1) {
+        spinner.show();
+        tableBody.empty();
+        paginationContainer.empty();
+        resultsCount.text('Loading...');
+
+        const search = searchInput.val();
+        const categoryId = categoryFilter.val();
+
+        let apiUrl = `{{ url_for('admin_bp.api_get_all_products') }}?page=${page}`;
+        if (search) apiUrl += `&search=${search}`;
+        if (categoryId) apiUrl += `&category_id=${categoryId}`;
+
+        $.ajax({
+            url: apiUrl, method: 'GET',
+            success: function(response) {
+                renderTableAndCount(response);
+                renderPagination(response.total_pages, response.current_page);
+                $('[data-bs-toggle="tooltip"]').tooltip();
+            },
+            error: function() {
+                resultsCount.text('Error');
+                tableBody.html('<tr><td colspan="9" class="text-center text-danger">Could not load products.</td></tr>');
+            },
+            complete: function() { spinner.hide(); }
+        });
+    }
+
+    // --- 3. REDESIGNED RENDERING FUNCTION ---
+    function renderTableAndCount(data) {
+        resultsCount.text(`${data.total_count} Products Found`);
+        tableBody.empty();
+
+        if (!data.products || data.products.length === 0) {
+            tableBody.html('<tr><td colspan="9" class="text-center">No products found.</td></tr>');
+            return;
+        }
+
+        const startingSn = (data.current_page - 1) * 10 + 1;
+
+        data.products.forEach(function(product, index) {
+            // --- DYNAMIC BUTTON LOGIC WITH HIGHLIGHTING ---
+            const approvedBtn = `<button class="btn btn-success action-btn ${product.is_approved ? '' : 'btn-outline-success'}" data-field="is_approved" data-value="true" data-product-id="${product.product_id}" title="Approve">✓</button>`;
+            const rejectBtn = `<button class="btn btn-danger action-btn ${!product.is_approved ? '' : 'btn-outline-danger'}" data-field="is_approved" data-value="false" data-product-id="${product.product_id}" title="Reject">×</button>`;
+            
+            const activateBtn = `<button class="btn btn-info action-btn ${product.is_active ? '' : 'btn-outline-info'}" data-field="is_active" data-value="true" data-product-id="${product.product_id}" title="Activate">✓</button>`;
+            const deactivateBtn = `<button class="btn btn-secondary action-btn ${!product.is_active ? '' : 'btn-outline-secondary'}" data-field="is_active" data-value="false" data-product-id="${product.product_id}" title="Deactivate">×</button>`;
+
+            const featureBtn = `<button class="btn btn-warning action-btn ${product.is_featured ? '' : 'btn-outline-warning'}" data-field="is_featured" data-value="true" data-product-id="${product.product_id}" title="Feature">✓</button>`;
+            const unfeatureBtn = `<button class="btn btn-light action-btn ${!product.is_featured ? '' : 'btn-outline-light text-dark'}" data-field="is_featured" data-value="false" data-product-id="${product.product_id}" title="Un-Feature">×</button>`;
+
+            const row = `
+                <tr>
+                    <td>${startingSn + index}</td>
+                    <td><span class="product-name-truncate" data-bs-toggle="tooltip" title="${product.name}">${product.name}</span></td>
+                    <td>${product.business_name}</td>
+                    <td class="text-end">$${parseFloat(product.price).toFixed(2)}</td>
+                    <td class="text-center">${product.stock_quantity}</td>
+                    <td class="text-center"><div class="btn-group btn-group-sm action-btn-group" role="group">${approvedBtn}${rejectBtn}</div></td>
+                    <td class="text-center"><div class="btn-group btn-group-sm action-btn-group" role="group">${activateBtn}${deactivateBtn}</div></td>
+                    <td class="text-center"><div class="btn-group btn-group-sm action-btn-group" role="group">${featureBtn}${unfeatureBtn}</div></td>
+                    <td class="text-center">
+                       <button class="btn btn-sm btn-danger delete-btn" data-product-id="${product.product_id}" data-product-name="${product.name}" title="Delete Product">
+                           <i class="fas fa-trash-alt"></i>
+                       </button>
+                    </td>
+                </tr>
+            `;
+            tableBody.append(row);
+        });
+    }
+
+    function renderPagination(totalPages, currentPage) {
+        paginationContainer.empty();
+        if (totalPages <= 1) return;
+        let paginationHtml = '<ul class="pagination">';
+        paginationHtml += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a></li>`;
+        for (let i = 1; i <= totalPages; i++) {
+            paginationHtml += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+        }
+        paginationHtml += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage + 1}">Next</a></li>`;
+        paginationHtml += '</ul>';
+        paginationContainer.html(paginationHtml);
+    }
+
+    // --- 4. INITIALIZATION ---
+    function initializeFilters() {
+        $.get(`{{ url_for('admin_bp.api_get_main_categories') }}`, function(categories) {
+            categories.forEach(cat => categoryFilter.append(`<option value="${cat.category_id}">${cat.name}</option>`));
+        });
+    }
+
+    // --- 5. EVENT LISTENERS ---
+    $('#filter-form').on('submit', function(e) { e.preventDefault(); loadProducts(1); });
+    paginationContainer.on('click', '.page-link', function(e) { e.preventDefault(); const page = $(this).data('page'); if (page) loadProducts(page); });
+
+    tableBody.on('click', '.action-btn', function() {
+        const button = $(this);
+        const productId = button.data('product-id');
+        const fieldToUpdate = button.data('field');
+        const newValue = button.data('value');
+        
+        // Prevent clicking the already active state
+        if (button.hasClass('btn-success') || button.hasClass('btn-danger') || button.hasClass('btn-info') || button.hasClass('btn-secondary') || button.hasClass('btn-warning') || button.hasClass('btn-light')) {
+            if (!button.attr('class').includes('outline')) {
+                 return; // Do nothing if the solid (active) button is clicked
+            }
+        }
+
+        $.ajax({
+            url: "{{ url_for('admin_bp.api_update_product_status') }}", method: 'POST', contentType: 'application/json',
+            data: JSON.stringify({ product_id: productId, field: fieldToUpdate, value: newValue }),
+            success: function() {
+                const currentPage = parseInt(paginationContainer.find('.active .page-link').text()) || 1;
+                loadProducts(currentPage);
+            },
+            error: function(xhr) { alert(`Error: ${xhr.responseJSON ? xhr.responseJSON.error : 'An unknown error occurred.'}`); }
+        });
+    });
+
+    tableBody.on('click', '.delete-btn', function() {
+        const productId = $(this).data('product-id');
+        const productName = $(this).data('product-name');
+        if (confirm(`Are you sure you want to PERMANENTLY DELETE "${productName}"? This action cannot be undone.`)) {
+            $.ajax({
+                url: "{{ url_for('admin_bp.api_delete_product') }}", method: 'POST', contentType: 'application/json',
+                data: JSON.stringify({ product_id: productId }),
+                success: function() { alert('Product deleted successfully.'); loadProducts(1); },
+                error: function(xhr) { alert(`Error: ${xhr.responseJSON ? xhr.responseJSON.error : 'An unknown error occurred.'}`); }
+            });
+        }
+    });
+
+    // --- 6. INITIAL PAGE LOAD ---
+    initializeFilters();
+    loadProducts(1);
+});
+</script>
+{% endblock %}

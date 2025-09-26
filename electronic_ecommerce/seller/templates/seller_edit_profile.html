@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Seller Profile{% endblock %}
+
+{% block head %}
+{{ super() }}
+<!-- START: NEW CSS BLOCK FOR FORM FIELD STYLING -->
+<style>
+    /*
+      This targets all standard input fields, textareas, and select dropdowns
+      within the form to give them a consistent, modern look.
+    */
+    #edit-profile-form .form-control,
+    #edit-profile-form .form-select {
+        border: 1px solid #ced4da; /* A standard, visible light-grey border */
+        transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out; /* Smooth transition for hover/focus */
+    }
+
+    /*
+      This is the hover and focus effect.
+      When a user hovers over or clicks into a field, the border will turn
+      the primary blue color, and a subtle glow (box-shadow) will appear.
+    */
+    #edit-profile-form .form-control:hover,
+    #edit-profile-form .form-select:hover,
+    #edit-profile-form .form-control:focus,
+    #edit-profile-form .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25); /* The blue glow effect */
+    }
+
+    /* We use floating labels, so let's adjust their padding */
+    .form-floating > .form-control {
+        padding: 1rem 0.75rem;
+    }
+    .form-floating > label {
+        padding: 1rem 0.75rem;
+    }
+</style>
+<!-- END: NEW CSS BLOCK -->
+{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h2 mb-4">Edit Your Profile</h1>
+    <div id="form-message" class="mb-3"></div>
+
+    <form id="edit-profile-form" enctype="multipart/form-data">
+        <div class="row">
+            <!-- Left Column: Main Info -->
+            <div class="col-lg-8">
+                <!-- Personal Info Card -->
+                <div class="card mb-4">
+                    <div class="card-header"><h5><i class="fas fa-user-edit me-2"></i>Personal Information</h5></div>
+                    <div class="card-body p-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-4 text-center mb-4 mb-md-0">
+                                <img id="profile-image-preview" src="https://via.placeholder.com/150" alt="Profile Preview" class="img-thumbnail rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;">
+                                <label for="profile_image" class="btn btn-sm btn-outline-secondary w-100">
+                                    <i class="fas fa-camera me-1"></i> Change Photo
+                                </label>
+                                <input class="d-none" type="file" id="profile_image" name="profile_image" accept="image/*">
+                            </div>
+                            <div class="col-md-8">
+                                <div class="form-floating mb-3">
+                                    <input type="text" class="form-control" id="full_name" name="full_name" placeholder="Full Name" required>
+                                    <label for="full_name">Full Name</label>
+                                </div>
+                                <div class="form-floating mb-3">
+                                    <input type="tel" class="form-control" id="phone" name="phone" placeholder="Personal Phone">
+                                    <label for="phone">Personal Phone</label>
+                                </div>
+                                <div class="form-floating mb-3">
+                                    <input type="email" class="form-control" id="email" name="email" placeholder="Email" readonly>
+                                    <label for="email">Account Email (Cannot be changed)</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Business Info Card -->
+                <div class="card mb-4">
+                    <div class="card-header"><h5><i class="fas fa-briefcase me-2"></i>Business Information</h5></div>
+                    <div class="card-body p-4">
+                        <div class="row">
+                            <div class="col-md-6 mb-3"><div class="form-floating"><input type="text" class="form-control" id="business_name" name="business_name" placeholder="Business Name" required><label for="business_name">Business Name</label></div></div>
+                            <div class="col-md-6 mb-3"><div class="form-floating"><input type="tel" class="form-control" id="business_phone" name="business_phone" placeholder="Business Phone" required><label for="business_phone">Business Phone</label></div></div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3"><div class="form-floating"><input type="text" class="form-control" id="business_address" name="business_address" placeholder="Business Address" required><label for="business_address">Business Address</label></div></div>
+                            <div class="col-md-6 mb-3"><div class="form-floating"><input type="url" class="form-control" id="website_url" name="website_url" placeholder="Website URL"><label for="website_url">Website URL (Optional)</label></div></div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3"><label for="business_country" class="form-label">Country</label><select class="form-select" id="business_country" name="business_country" required><option value="">Loading...</option></select></div>
+                            <div class="col-md-4 mb-3"><label for="business_state" class="form-label">State</label><select class="form-select" id="business_state" name="business_state" required><option value="">Select country</option></select></div>
+                            <div class="col-md-4 mb-3"><label for="business_city" class="form-label">City</label><select class="form-select" id="business_city" name="business_city" required><option value="">Select state</option></select></div>
+                        </div>
+                         <div class="row">
+                             <div class="col-md-6 mb-3"><div class="form-floating"><input type="text" class="form-control" id="business_zip_code" name="business_zip_code" placeholder="ZIP Code" required><label for="business_zip_code">ZIP Code</label></div></div>
+                             <div class="col-md-6 mb-3"><div class="form-floating"><input type="text" class="form-control" id="tax_id" name="tax_id" placeholder="Tax ID"><label for="tax_id">Tax ID (Optional)</label></div></div>
+                        </div>
+                        <div class="form-floating mb-3">
+                            <textarea class="form-control" id="business_description" name="business_description" placeholder="Business Description" style="height: 100px"></textarea>
+                            <label for="business_description">Business Description (Optional)</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Logo Upload -->
+            <div class="col-lg-4">
+                <div class="card position-sticky" style="top: 8rem;">
+                    <div class="card-header"><h5><i class="fas fa-image me-2"></i>Business Logo</h5></div>
+                    <div class="card-body text-center p-4">
+                        <img id="logo-preview" src="https://via.placeholder.com/200" alt="Logo Preview" class="img-thumbnail mb-3" style="width: 200px; height: 200px; object-fit: contain;">
+                        <label for="logo_url" class="btn btn-outline-secondary w-100">
+                            <i class="fas fa-upload me-1"></i> Upload Logo
+                        </label>
+                        <input class="d-none" type="file" id="logo_url" name="logo_url" accept="image/*">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex justify-content-end my-4">
+            <a href="{{ url_for('seller_bp.dashboard') }}" class="btn btn-secondary btn-lg me-3">Cancel</a>
+            <button type="submit" id="submit-btn" class="btn btn-primary btn-lg">
+                <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                <span class="btn-text">Save Changes</span>
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    // --- Your existing JavaScript is perfect and requires NO CHANGES ---
+    const countrySelect = $('#business_country');
+    const stateSelect = $('#business_state');
+    const citySelect = $('#business_city');
+    const profileImagePreview = $('#profile-image-preview');
+    const profileImageInput = $('#profile_image');
+
+    function populateForm(data) {
+        $('#full_name').val(data.full_name);
+        $('#email').val(data.email);
+        $('#phone').val(data.phone || '');
+        if (data.profile_image_url) {
+            profileImagePreview.attr('src', data.profile_image_url);
+        }
+        $('#business_name').val(data.business_name);
+        $('#business_phone').val(data.business_phone);
+        $('#tax_id').val(data.tax_id || '');
+        $('#business_address').val(data.business_address);
+        $('#business_zip_code').val(data.business_zip_code);
+        $('#website_url').val(data.website_url || '');
+        $('#business_description').val(data.business_description || '');
+        if (data.logo_url) {
+            $('#logo-preview').attr('src', `/${data.logo_url}`);
+        }
+        loadCountries(data.business_country, data.business_state, data.business_city);
+    }
+
+    function loadCountries(selectedCountry, selectedState, selectedCity) {
+        $.ajax({
+            url: "/api/countries", method: 'GET',
+            success: function(countries) {
+                countrySelect.empty().append('<option value="" disabled>Select a country</option>');
+                countries.forEach(c => countrySelect.append(new Option(c.name, c.iso2)));
+                if (selectedCountry) {
+                    const countryData = countries.find(c => c.name === selectedCountry);
+                    if (countryData) countrySelect.val(countryData.iso2).trigger('change', [selectedState, selectedCity]);
+                }
+            }
+        });
+    }
+    countrySelect.on('change', function(event, selectedState, selectedCity) {
+        const countryCode = $(this).val();
+        stateSelect.html('<option value="">Loading...</option>').prop('disabled', true);
+        if (!countryCode) return;
+        $.ajax({
+            url: `/api/states/${countryCode}`, method: 'GET',
+            success: function(states) {
+                stateSelect.empty().append('<option value="">Select a state</option>').prop('disabled', false);
+                states.forEach(s => stateSelect.append(new Option(s.name, s.iso2)));
+                if (selectedState) {
+                    const stateData = states.find(s => s.name === selectedState);
+                    if (stateData) stateSelect.val(stateData.iso2).trigger('change', [selectedCity]);
+                }
+            }
+        });
+    });
+    stateSelect.on('change', function(event, selectedCity) {
+        const countryCode = countrySelect.val();
+        const stateCode = $(this).val();
+        citySelect.html('<option value="">Loading...</option>').prop('disabled', true);
+        if (!stateCode) return;
+        $.ajax({
+            url: `/api/cities/${countryCode}/${stateCode}`, method: 'GET',
+            success: function(cities) {
+                citySelect.empty().append('<option value="">Select a city</option>').prop('disabled', false);
+                cities.forEach(c => citySelect.append(new Option(c.name, c.name)));
+                if (selectedCity) citySelect.val(selectedCity);
+            }
+        });
+    });
+
+    profileImageInput.on('change', function(event) {
+        if (event.target.files && event.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = e => profileImagePreview.attr('src', e.target.result);
+            reader.readAsDataURL(event.target.files[0]);
+        }
+    });
+
+    $('#logo_url').on('change', function(event) {
+        if (event.target.files && event.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = e => $('#logo-preview').attr('src', e.target.result);
+            reader.readAsDataURL(event.target.files[0]);
+        }
+    });
+
+    $('#edit-profile-form').on('submit', function(e) {
+        e.preventDefault();
+        const submitBtn = $('#submit-btn');
+        const messageDiv = $('#form-message');
+        messageDiv.html('');
+        const formData = new FormData(this);
+        formData.set('business_country', $('#business_country option:selected').text());
+        formData.set('business_state', $('#business_state option:selected').text());
+        submitBtn.prop('disabled', true).find('.spinner-border').removeClass('d-none');
+        submitBtn.find('.btn-text').text('Saving...');
+        $.ajax({
+            url: "{{ url_for('seller_bp.api_seller_profile') }}",
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                messageDiv.html(`<div class="alert alert-success">${response.message}</div>`);
+                loadInitialData();
+                updateNavbarProfileImage(); 
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "An unexpected error occurred.";
+                messageDiv.html(`<div class="alert alert-danger">${errorMsg}</div>`);
+            },
+            complete: function() {
+                submitBtn.prop('disabled', false).find('.spinner-border').addClass('d-none');
+                submitBtn.find('.btn-text').text('Save Changes');
+            }
+        });
+    });
+
+    function loadInitialData() {
+         $.ajax({
+            url: "{{ url_for('seller_bp.api_seller_profile') }}",
+            method: 'GET',
+            success: populateForm,
+            error: function() {
+                $('#form-message').html('<div class="alert alert-danger">Could not load your profile data. Please try again later.</div>');
+                $('#edit-profile-form').hide();
+            }
+        });
+    }
+    
+    loadInitialData();
+});
+</script>
+{% endblock %}

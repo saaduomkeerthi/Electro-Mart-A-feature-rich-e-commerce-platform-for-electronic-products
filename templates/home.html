@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome to ElectroMart{% endblock %}
+
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
+<style>
+    /* Carousel styles */
+    .hero-swiper-section { position: relative; width: 100%; height: 550px; overflow: hidden; }
+    .swiper-container { width: 100%; height: 100%; }
+    .swiper-slide { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .slide-bg-1 { background: radial-gradient(circle, #e9f1ff, #d1d9ff); }
+    .slide-bg-2 { background: radial-gradient(circle, #f5efff, #e8d9ff); }
+    .slide-bg-3 { background: radial-gradient(circle, #e0f7f1, #cceeee); }
+    .slide-content { display: grid; grid-template-columns: 35% 65%; align-items: center; width: 100%; height: 100%; max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
+    .slide-text h2 { font-size: clamp(1.6rem, 3.5vw, 2.2rem); font-weight: 700; }
+    .slide-image { max-width: 95%; max-height: 90%; object-fit: contain; filter: drop-shadow(0px 25px 35px rgba(0, 0, 0, 0.2)); }
+    
+    /* Improved Product Card Styles */
+    .product-card { background-color: #f8f9fa; border: none; border-radius: 15px; transition: all 0.2s ease; overflow: hidden; }
+    .product-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    .product-card-img-container { background-color: #fff; padding: 1rem; }
+    .product-card-img-top { height: 200px; object-fit: contain; }
+    .product-card .card-title { font-size: 1rem; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 3em; }
+    .product-card .card-text { font-size: 0.85rem; color: #6c757d; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; min-height: 4em; }
+
+    /* Wishlist Button Style */
+    .wishlist-toggle-btn { background-color: #ffffff; border: 1px solid #fd0000; border-radius: 50%; width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease-in-out; }
+    .wishlist-toggle-btn:hover { background-color: #f1f5f9; transform: scale(1.1); }
+    .wishlist-toggle-btn .fa-heart { color: #f87171; }
+    .wishlist-toggle-btn.active { background-color: #ef4444; border-color: #ef4444; }
+    .wishlist-toggle-btn.active .fa-heart { color: #ffffff; font-weight: 900; }
+
+    /* --- STYLES FOR QUANTITY CONTROLLER --- */
+    .cart-action-container {
+        width: 100px; /* Adjusted width */
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+    }
+    .quantity-controller {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 1px solid var(--primary-color);
+        border-radius: 10px;
+        overflow: hidden;
+        width: 100%;
+    }
+    .quantity-controller .btn {
+        background-color: transparent; border: none; color: var(--primary-color);
+        font-weight: 600; padding: 0.375rem 0.75rem; line-height: 1;
+    }
+    .quantity-controller .btn:hover { background-color: rgba(67, 97, 238, 0.1); }
+    .quantity-controller .quantity-input {
+        width: 35px; text-align: center; border: none; background: transparent;
+        font-weight: 600; padding: 0; height: 100%;
+    }
+    .quantity-input::-webkit-outer-spin-button, .quantity-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .quantity-input[type=number] { -moz-appearance: textfield; }
+    
+    .add-to-cart-btn-sm {
+        border-radius: 10px !important;
+        width: 45px;
+        height: 38px;
+    }
+    /* --- END QUANTITY CONTROLLER STYLES --- */
+
+    /* Promo Banner Style */
+    .promo-banner-internal { background: linear-gradient(135deg, #e0eafc, #cfdef3); border: 1px solid #a8c0e0; border-radius: var(--border-radius-lg); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="action-message-container"></div>
+<div class="promo-banner-internal p-3 mb-4 text-center"><p class="lead mb-0 fw-medium">✨ Weekend Special! Use code <strong class="text-primary">WEEKEND20</strong> for 20% off! ✨</p></div>
+
+{% if carousel_products %}<div class="hero-swiper-section rounded-3 mb-5 shadow-sm"><div class="swiper-container"><div class="swiper-wrapper"></div><div class="swiper-button-prev"></div><div class="swiper-button-next"></div><div class="swiper-pagination"></div></div></div>{% endif %}
+
+<div class="row text-center features-bar my-5 g-4">
+    <div class="col-md-4"><div class="card card-body h-100"><i class="fas fa-shipping-fast fa-2x text-primary mb-2"></i><h5 class="fw-bold">Fast Shipping</h5></div></div>
+    <div class="col-md-4"><div class="card card-body h-100"><i class="fas fa-shield-alt fa-2x text-primary mb-2"></i><h5 class="fw-bold">Secure Payments</h5></div></div>
+    <div class="col-md-4"><div class="card card-body h-100"><i class="fas fa-headset fa-2x text-primary mb-2"></i><h5 class="fw-bold">24/7 Support</h5></div></div>
+</div>
+
+<div class="container-fluid mt-5">
+    <h2 class="text-center mb-3 fw-bold">Shop by Category</h2>
+    <section id="category-filters" class="mb-4 d-flex justify-content-center"><div id="category-buttons" class="btn-group flex-wrap justify-content-center" role="group"><div class="spinner-border spinner-border-sm"></div></div></section>
+    <section id="all-products"><div id="product-list" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4"><div class="text-center w-100 py-5"><div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div></div></div></section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+<script>
+$(document).ready(function() {
+    const productList = $('#product-list');
+    let allProducts = [];
+    let cartItemsMap = new Map(); // Stores product_id -> quantity
+
+    function showMessage(text, type) {
+        $('#action-message-container').html(`<div class="alert alert-${type} alert-dismissible fade show mb-3">${text}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`);
+        setTimeout(() => { $('#action-message-container .alert').fadeOut(500, function() { $(this).remove(); }); }, 3500);
+    }
+
+    function initializeCarousel() {
+        const carouselProducts = {{ carousel_products|tojson|safe }};
+        if (!carouselProducts || carouselProducts.length === 0) return;
+        const swiperWrapper = $('.swiper-wrapper');
+        carouselProducts.forEach((product, index) => {
+            const productUrl = `/product/${product.product_id}`;
+            const imageUrl = product.image_url ? `/${product.image_url}` : `{{ url_for('static', filename='images/placeholder.png') }}`;
+            swiperWrapper.append(`<div class="swiper-slide slide-bg-${(index % 3) + 1}"><div class="slide-content"><div class="slide-text"><h2>${product.name}</h2><p>${product.short_description||'The latest tech, available now.'}</p><a href="${productUrl}" class="btn btn-primary btn-sm">Shop Now</a></div><div class="slide-image-wrapper"><img src="${imageUrl}" class="slide-image" alt="${product.name}"></div></div></div>`);
+        });
+        new Swiper('.swiper-container', { loop: true, autoplay: { delay: 4500 }, navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' }, pagination: { el: '.swiper-pagination', clickable: true } });
+    }
+
+    function renderProducts(productsToRender) {
+        productList.empty();
+        if (!productsToRender || productsToRender.length === 0) {
+            productList.html('<div class="col-12"><div class="alert alert-info text-center">No products found.</div></div>');
+            return;
+        }
+        productsToRender.forEach(function(product) {
+            const productUrl = `/product/${product.product_id}`;
+            const imageUrl = product.image_url ? `/${product.image_url}` : `{{ url_for('static', filename='images/placeholder.png') }}`;
+            const quantityInCart = cartItemsMap.get(product.product_id) || 0;
+
+            let cartActionHtml;
+            if (quantityInCart > 0) {
+                cartActionHtml = `
+                    <div class="quantity-controller" data-product-id="${product.product_id}">
+                        <button class="btn btn-sm qty-btn" data-action="decrease">-</button>
+                        <input type="number" class="quantity-input" value="${quantityInCart}" min="1" readonly>
+                        <button class="btn btn-sm qty-btn" data-action="increase">+</button>
+                    </div>`;
+            } else {
+                cartActionHtml = `<button class="btn btn-primary add-to-cart-btn-sm" data-product-id="${product.product_id}"><i class="fas fa-cart-plus"></i></button>`;
+            }
+
+            const productCardHtml = `
+                <div class="col">
+                    <div class="card h-100 d-flex flex-column product-card">
+                        <div class="position-relative product-card-img-container">
+                            <a href="${productUrl}"><img src="${imageUrl}" class="card-img-top product-card-img-top" alt="${product.name}"></a>
+                            <button class="btn wishlist-toggle-btn position-absolute top-0 end-0 m-2" title="Add to Wishlist" data-product-id="${product.product_id}"><i class="far fa-heart"></i></button>
+                        </div>
+                        <div class="card-body d-flex flex-column p-3">
+                            <div class="flex-grow-1">
+                                <h5 class="card-title"><a href="${productUrl}" class="text-decoration-none text-dark">${product.name}</a></h5>
+                                <p class="card-text">${product.short_description || ''}</p>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-auto pt-2">
+                                <p class="price fs-5 fw-bold text-primary mb-0">$${parseFloat(product.price).toFixed(2)}</p>
+                                <div class="cart-action-container" data-product-id="${product.product_id}">${cartActionHtml}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            productList.append(productCardHtml);
+        });
+        checkWishlistStatus();
+    }
+
+    function checkProductStatuses() {
+        if (!"{{ session.user_id }}") {
+            renderProducts(allProducts);
+            return;
+        }
+        $.get("{{ url_for('buyer_bp.api_get_cart') }}", function(cartResponse) {
+            cartItemsMap.clear();
+            if (cartResponse.items) {
+                cartResponse.items.forEach(item => cartItemsMap.set(item.product_id, item.quantity));
+            }
+            renderProducts(allProducts);
+        });
+    }
+
+    function checkWishlistStatus() {
+        const productIds = allProducts.map(p => p.product_id);
+        if (productIds.length === 0 || !"{{ session.user_id }}") return;
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_get_wishlist_status') }}",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ product_ids: productIds }),
+            success: function(statuses) {
+                for (const [productId, inWishlist] of Object.entries(statuses)) {
+                    if (inWishlist) {
+                        const button = $(`.wishlist-toggle-btn[data-product-id="${productId}"]`);
+                        button.addClass('active').find('i').removeClass('far').addClass('fas');
+                    }
+                }
+            }
+        });
+    }
+
+    productList.on('click', '.add-to-cart-btn-sm', function() {
+        const button = $(this);
+        const productId = button.data('product-id');
+        const container = button.closest('.cart-action-container');
+        
+        container.html('<div class="spinner-border spinner-border-sm text-primary" role="status"></div>');
+
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_add_to_cart') }}",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ product_id: productId, quantity: 1 }),
+            success: function(response) {
+                cartItemsMap.set(productId, 1);
+                container.html(`
+                    <div class="quantity-controller" data-product-id="${productId}">
+                        <button class="btn btn-sm qty-btn" data-action="decrease">-</button>
+                        <input type="number" class="quantity-input" value="1" readonly>
+                        <button class="btn btn-sm qty-btn" data-action="increase">+</button>
+                    </div>`);
+                showMessage(response.message, 'success');
+                updateCartCount();
+            },
+            error: function() {
+                container.html(button);
+                showMessage('Could not add item to cart.', 'danger');
+            }
+        });
+    });
+
+    productList.on('click', '.qty-btn', function() {
+        const button = $(this);
+        const action = button.data('action');
+        const controller = button.closest('.quantity-controller');
+        const productId = controller.data('product-id');
+        const input = controller.find('.quantity-input');
+        let currentQty = parseInt(input.val());
+
+        currentQty = (action === 'increase') ? currentQty + 1 : currentQty - 1;
+
+        if (currentQty < 1) {
+            $.ajax({
+                url: "{{ url_for('buyer_bp.api_remove_from_cart') }}",
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ product_id: productId }),
+                success: function() {
+                    cartItemsMap.delete(productId);
+                    controller.closest('.cart-action-container').html(`<button class="btn btn-primary add-to-cart-btn-sm" data-product-id="${productId}"><i class="fas fa-cart-plus"></i></button>`);
+                    updateCartCount();
+                }
+            });
+        } else {
+            input.val(currentQty);
+            $.ajax({
+                url: "{{ url_for('buyer_bp.api_update_cart') }}",
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ product_id: productId, quantity: currentQty }),
+                success: function() {
+                    cartItemsMap.set(productId, currentQty);
+                    updateCartCount();
+                }
+            });
+        }
+    });
+
+    productList.on('click', '.wishlist-toggle-btn', function() {
+        const button = $(this);
+        const productId = button.data('product-id');
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_toggle_wishlist') }}",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ product_id: productId }),
+            success: function(response) {
+                button.toggleClass('active', response.status);
+                button.find('i').toggleClass('far fas', response.status);
+                showMessage(response.message, 'info');
+                $(document).trigger('wishlistUpdated');
+            }
+        });
+    });
+
+    function loadCategoryFilters() {
+        $.get("{{ url_for('home_bp.api_get_all_categories') }}", function(categories) {
+            const categoryButtons = $('#category-buttons');
+            categoryButtons.empty().append('<button type="button" class="btn btn-primary active m-1" data-category-id="all">All</button>');
+            categories.forEach(category => categoryButtons.append(`<button type="button" class="btn btn-outline-primary m-1" data-category-id="${category.category_id}">${category.name}</button>`));
+        });
+    }
+
+    function loadAllProducts() {
+        $.get("{{ url_for('home_bp.api_get_all_products') }}", function(products) {
+            allProducts = products;
+            checkProductStatuses();
+        });
+    }
+
+    $('#category-buttons').on('click', 'button', function() {
+        const selectedCategoryId = $(this).data('category-id');
+        $('#category-buttons button').removeClass('active btn-primary').addClass('btn-outline-primary');
+        $(this).addClass('active btn-primary');
+        const filteredProducts = (selectedCategoryId === 'all') ? allProducts : allProducts.filter(p => p.category_id == selectedCategoryId || p.parent_category_id == selectedCategoryId);
+        renderProducts(filteredProducts);
+    });
+    
+    // Initial Load
+    initializeCarousel();
+    loadCategoryFilters();
+    loadAllProducts();
+});
+</script>
+{% endblock %}

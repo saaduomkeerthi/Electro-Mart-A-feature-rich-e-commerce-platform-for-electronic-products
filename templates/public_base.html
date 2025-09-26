@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ElectroMart{% endblock %}</title>
+
+    <!-- CSS Libraries -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --card-bg: #ffffff;
+            --box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            --border-radius: 12px;
+            --gradient-primary: linear-gradient(135deg, #4361ee, #3a0ca3);
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f7f9fc;
+            color: #2d3748;
+        }
+        .top-navbar {
+            background-color: var(--card-bg);
+            box-shadow: var(--box-shadow);
+            padding: 0.75rem 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 1050;
+        }
+        .top-navbar-content {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        .navbar-brand-logo {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            font-weight: 700;
+            color: white;
+            text-decoration: none;
+            background: var(--gradient-primary);
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 10px rgba(67, 97, 238, 0.25);
+        }
+        .navbar-brand-logo i {
+            font-size: 1.2rem;
+            margin-right: 8px;
+        }
+        .btn-primary {
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 8px;
+            padding: 0.6rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(67, 97, 238, 0.25);
+        }
+        .btn-primary:hover {
+            background: var(--gradient-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(67, 97, 238, 0.35);
+        }
+        .btn-outline-primary {
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            border-radius: 8px;
+            padding: 0.5rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .btn-outline-primary:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(67, 97, 238, 0.2);
+        }
+        .input-group {
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+        .form-control {
+            border: none;
+            padding: 0.75rem 1rem;
+        }
+        .form-control:focus {
+            box-shadow: none;
+        }
+        .footer {
+            background-color: #343a40;
+            color: white;
+            padding: 40px 0;
+        }
+        .footer a {
+            color: #adb5bd;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            color: white;
+        }
+        .page-content-wrapper {
+            background: #fff;
+            border-radius: 20px;
+            padding: 3rem 2rem;
+            margin-top: -50px;
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.05);
+        }
+        .section-title {
+            font-weight: 700;
+            position: relative;
+            display: inline-block;
+            padding-bottom: 0.5rem;
+        }
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: var(--gradient-primary);
+            border-radius: 2px;
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+
+<body>
+    <div class="d-flex flex-column min-vh-100">
+        <header class="top-navbar">
+            <div class="top-navbar-content container">
+                <a href="{{ url_for('landing') }}" class="navbar-brand-logo">
+                    <i class="fas fa-bolt"></i> ElectroMart
+                </a>
+                <form class="d-none d-md-flex ms-3 flex-grow-1" action="{{ url_for('home_bp.search_page') }}" method="GET">
+                    <div class="input-group" style="max-width: 520px; margin: 0 auto;">
+                        <input class="form-control" type="search" name="q" placeholder="Search for products..." aria-label="Search">
+                        <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i></button>
+                    </div>
+                </form>
+                <div class="ms-auto d-flex align-items-center">
+                    <a href="{{ url_for('landing') }}" class="btn btn-outline-primary me-2">Home</a> 
+                    <a href="{{ url_for('home_bp.about_page') }}" class="btn btn-outline-primary me-2">About Us</a>       
+                    <a href="{{ url_for('auth_bp.login') }}" class="btn btn-outline-primary me-2">Login</a>
+                </div>
+            </div>
+        </header>
+        <main class="flex-grow-1">
+            {% block content %}{% endblock %}
+        </main>
+        <footer class="footer mt-auto">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h5>About ElectroMart</h5>
+                        <p>Your one-stop shop for the latest and greatest in electronics.</p>
+                    </div>
+                    <div class="col-md-2">
+                        <h5>Quick Links</h5>
+                        <ul class="list-unstyled">
+                            <li><a href="{{ url_for('landing') }}">Home</a></li>
+                            <li><a href="{{ url_for('home_bp.search_page') }}">Products</a></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-3">
+                        <h5>Customer Service</h5>
+                        <ul class="list-unstyled">
+                            <li><a href="#">FAQ</a></li>
+                            <li><a href="#">Shipping Info</a></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-3">
+                        <h5>Connect With Us</h5>
+                        <a href="#" class="me-2"><i class="fab fa-facebook-f fa-lg"></i></a>
+                        <a href="#" class="me-2"><i class="fab fa-twitter fa-lg"></i></a>
+                    </div>
+                </div>
+                <div class="text-center pt-3 border-top mt-3">
+                    <p>&copy; 2024 ElectroMart. All Rights Reserved.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- === START: CORRECTED AND COMPLETE SCRIPT SECTION === -->
+    <!-- 1. jQuery MUST be loaded FIRST -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- 2. Bootstrap JS (which depends on jQuery) is loaded SECOND -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- 3. Your custom page scripts are loaded LAST -->
+    {% block scripts %}{% endblock %}
+    <!-- === END: CORRECTED AND COMPLETE SCRIPT SECTION === -->
+</body>
+</html>

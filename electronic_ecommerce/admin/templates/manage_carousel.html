@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Homepage Carousel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Manage Homepage Carousel</h1>
+</div>
+
+<div class="card">
+    <div class="card-header bg-light">
+        <p class="mb-0 text-muted">Select the products you want to feature in the homepage carousel. We recommend choosing between 4 to 8 products for the best display.</p>
+    </div>
+    <div class="card-body">
+        <form id="carousel-form">
+            <div id="product-list-container">
+                <div class="text-center p-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading products...</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="message-container" class="mt-3"></div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary btn-lg">Save Carousel Selection</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    const productListContainer = $('#product-list-container');
+    const messageContainer = $('#message-container');
+
+    function loadAllProductsForCarousel() {
+        $.ajax({
+            url: `{{ url_for('admin_bp.api_get_all_products_for_carousel') }}`,
+            method: 'GET',
+            success: function(products) {
+                productListContainer.empty();
+                if (products.length === 0) {
+                    productListContainer.html('<p class="text-center">No products found. Please add products first.</p>');
+                    return;
+                }
+
+                let productsHtml = '<ul class="list-group">';
+                products.forEach(product => {
+                    productsHtml += `
+                        <li class="list-group-item">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="${product.product_id}" 
+                                       id="product-${product.product_id}" name="carousel_products"
+                                       ${product.is_carousel ? 'checked' : ''}>
+                                <label class="form-check-label" for="product-${product.product_id}">
+                                    <strong>${product.name}</strong> <small class="text-muted"> (Seller: ${product.business_name})</small>
+                                </label>
+                            </div>
+                        </li>
+                    `;
+                });
+                productsHtml += '</ul>';
+                productListContainer.html(productsHtml);
+            },
+            error: function() {
+                productListContainer.html('<p class="text-danger text-center">Failed to load products.</p>');
+            }
+        });
+    }
+
+    $('#carousel-form').on('submit', function(e) {
+        e.preventDefault();
+        
+        const selectedIds = $('input[name="carousel_products"]:checked').map(function() {
+            return $(this).val();
+        }).get();
+
+        const submitButton = $(this).find('button[type="submit"]');
+        submitButton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Saving...');
+
+        $.ajax({
+            url: `{{ url_for('admin_bp.api_update_carousel_products') }}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ product_ids: selectedIds }),
+            success: function(response) {
+                messageContainer.html(`<div class="alert alert-success">${response.message}</div>`);
+            },
+            error: function(xhr) {
+                const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : 'An error occurred.';
+                messageContainer.html(`<div class="alert alert-danger">${errorMsg}</div>`);
+            },
+            complete: function() {
+                submitButton.prop('disabled', false).text('Save Carousel Selection');
+            }
+        });
+    });
+
+    // Initial load
+    loadAllProductsForCarousel();
+});
+</script>
+{% endblock %}

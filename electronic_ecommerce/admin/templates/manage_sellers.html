@@ -1,0 +1,231 @@
+<!-- electronic_ecommerce/admin/templates/manage_sellers.html -->
+
+{% extends "base.html" %}
+
+{% block title %}Manage Sellers{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    .seller-profile-image {
+        width: 45px;
+        height: 45px;
+        object-fit: cover;
+        border-radius: 50%;
+        margin-right: 12px;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h2 mb-4">Manage Sellers</h1>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="card-title mb-0">All Registered Sellers</h5>
+        </div>
+        <div class="card-body">
+            <!-- START: NEW FILTER AND SEARCH FORM -->
+            <form id="filter-form" class="row g-3 align-items-center mb-4">
+                <div class="col-md-5">
+                    <label for="status-filter" class="form-label">Filter by Status</label>
+                    <select id="status-filter" class="form-select">
+                        <option value="">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="suspended">Suspended</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label for="search-input" class="form-label">Search by Name, Business, or Email</label>
+                    <input type="search" id="search-input" class="form-control" placeholder="e.g., John Doe...">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                </div>
+            </form>
+            <!-- END: NEW FILTER AND SEARCH FORM -->
+
+            <div class="table-responsive-sm">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <!-- ADDED SELLER NAME COLUMN -->
+                            <th scope="col">Seller Name</th>
+                            <th scope="col">Business Name</th>
+                            <th scope="col">Contact Email</th>
+                            <th scope="col">Registered On</th>
+                            <th scope="col" class="text-center">Status</th>
+                            <th scope="col" class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sellers-table-body">
+                        <!-- Dynamic content will be loaded here by AJAX -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div id="loading-spinner" class="text-center py-4" style="display: none;">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+
+            <!-- START: NEW PAGINATION CONTAINER -->
+            <nav id="pagination-container" class="mt-4 d-flex justify-content-center"></nav>
+            <!-- END: NEW PAGINATION CONTAINER -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+
+    // --- 1. REFERENCES & STATE ---
+    const tableBody = $('#sellers-table-body');
+    const spinner = $('#loading-spinner');
+    const paginationContainer = $('#pagination-container');
+    const statusFilter = $('#status-filter');
+    const searchInput = $('#search-input');
+
+    // --- 2. HELPER FUNCTION ---
+    function getStatusBadge(status) {
+        const statusMap = {
+            'approved': { class: 'bg-success-subtle text-success-emphasis', text: 'Approved' },
+            'pending': { class: 'bg-warning-subtle text-warning-emphasis', text: 'Pending' },
+            'rejected': { class: 'bg-danger-subtle text-danger-emphasis', text: 'Rejected' },
+            'suspended': { class: 'bg-secondary-subtle text-secondary-emphasis', text: 'Suspended' }
+        };
+        const style = statusMap[status] || { class: 'bg-light text-dark', text: status };
+        return `<span class="badge rounded-pill ${style.class}">${style.text}</span>`;
+    }
+
+    // --- 3. CORE DATA LOADING FUNCTION ---
+    function loadSellers(page = 1) {
+        spinner.show();
+        tableBody.empty();
+        paginationContainer.empty();
+
+        const search = searchInput.val();
+        const status = statusFilter.val();
+
+        let apiUrl = `{{ url_for('admin_bp.api_get_all_sellers') }}?page=${page}`;
+        if (search) apiUrl += `&search=${search}`;
+        if (status) apiUrl += `&status=${status}`;
+
+        $.ajax({
+            url: apiUrl,
+            method: 'GET',
+            success: function(response) {
+                spinner.hide();
+                renderTable(response.sellers);
+                renderPagination(response.total_pages, response.current_page);
+            },
+            error: function() {
+                spinner.hide();
+                tableBody.html('<tr><td colspan="6" class="text-center text-danger py-4">Error: Could not load seller data.</td></tr>');
+            }
+        });
+    }
+
+    // --- 4. RENDERING FUNCTIONS ---
+    function renderTable(sellers) {
+        if (!sellers || sellers.length === 0) {
+            tableBody.html('<tr><td colspan="6" class="text-center py-4">No sellers found matching your criteria.</td></tr>');
+            return;
+        }
+
+        sellers.forEach(function(seller) {
+            const statusBadge = getStatusBadge(seller.verification_status);
+            const placeholder = "{{ url_for('static', filename='images/placeholder_profile.png') }}";
+            const imageUrl = seller.profile_image_url || placeholder;
+
+            const nameCell = `
+                <div class="d-flex align-items-center">
+                    <img src="${imageUrl}" class="seller-profile-image" alt="${seller.full_name}">
+                    <span>${seller.full_name}</span>
+                </div>
+            `;
+
+            const row = `
+                <tr>
+                    <td>${nameCell}</td>
+                    <td><strong>${seller.business_name}</strong></td>
+                    <td>${seller.email}</td>
+                    <td>${seller.created_at}</td>
+                    <td class="text-center">${statusBadge}</td>
+                    <td class="text-end">
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-boundary="viewport">
+                                Actions
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item action-btn" href="#" data-seller-id="${seller.seller_id}" data-status="approved"><i class="fas fa-check-circle text-success me-2"></i>Approve</a></li>
+                                <li><a class="dropdown-item action-btn" href="#" data-seller-id="${seller.seller_id}" data-status="rejected"><i class="fas fa-times-circle text-danger me-2"></i>Reject</a></li>
+                                <li><a class="dropdown-item action-btn" href="#" data-seller-id="${seller.seller_id}" data-status="suspended"><i class="fas fa-ban text-secondary me-2"></i>Suspend</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="/admin/seller_permissions/${seller.seller_id}"><i class="fas fa-list-check text-primary me-2"></i>Set Permissions</a></li>
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            tableBody.append(row);
+        });
+    }
+
+    function renderPagination(totalPages, currentPage) {
+        if (totalPages <= 1) return;
+        let paginationHtml = '<ul class="pagination">';
+        paginationHtml += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a></li>`;
+        for (let i = 1; i <= totalPages; i++) {
+            paginationHtml += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+        }
+        paginationHtml += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage + 1}">Next</a></li>`;
+        paginationHtml += '</ul>';
+        paginationContainer.html(paginationHtml);
+    }
+
+    // --- 5. EVENT LISTENERS ---
+    $('#filter-form').on('submit', function(e) {
+        e.preventDefault();
+        loadSellers(1); // Reset to page 1 for new filters
+    });
+
+    paginationContainer.on('click', '.page-link', function(e) {
+        e.preventDefault();
+        const page = $(this).data('page');
+        if (page) loadSellers(page);
+    });
+
+    // Action buttons (Approve, Reject, etc.)
+    tableBody.on('click', '.action-btn', function(e) {
+        e.preventDefault();
+        const sellerId = $(this).data('seller-id');
+        const newStatus = $(this).data('status');
+        const sellerName = $(this).closest('tr').find('td:nth-child(2)').text();
+        if (!confirm(`Are you sure you want to set status to "${newStatus}" for seller "${sellerName}"?`)) return;
+        $.ajax({
+            url: "/admin/api/seller/update_status",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ seller_id: sellerId, status: newStatus }),
+            success: function(response) {
+                alert(response.message);
+                const currentPage = parseInt($('.pagination .active .page-link').data('page')) || 1;
+                loadSellers(currentPage);
+            },
+            error: function(xhr) {
+                alert(`Error: ${xhr.responseJSON.error}`);
+            }
+        });
+    });
+
+    // --- 6. INITIAL PAGE LOAD ---
+    loadSellers();
+});
+</script>
+{% endblock %}

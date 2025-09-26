@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile - ElectroMart{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+    /* This CSS is still perfect for adding the borders you wanted. */
+    .form-floating > .form-control {
+        border: 1px solid #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div>
+        <h1 class="h2 mb-4">My Profile</h1>
+        <div id="profile-message-area" class="mb-3"></div>
+
+        <!-- START: NEW ROW WRAPPER FOR SIDE-BY-SIDE LAYOUT -->
+        <div class="row">
+
+            <!-- START: Profile Edit Column (Wider: 8 out of 12 columns) -->
+            <div class="col-lg-8">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5><i class="fas fa-user-edit me-2"></i>Edit Profile Information</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <form id="profile-update-form" enctype="multipart/form-data">
+                            <div class="row align-items-center">
+                                <!-- LARGE PROFILE IMAGE SECTION -->
+                                <div class="col-md-4 text-center mb-4 mb-md-0">
+                                    <img id="profile-image-preview" src="https://via.placeholder.com/200" class="img-thumbnail rounded-circle" alt="Profile Image" style="width: 200px; height: 200px; object-fit: cover;">
+                                    <label for="profile_image" class="btn btn-sm btn-outline-primary mt-3 w-100">
+                                        <i class="fas fa-camera me-1"></i> Change Picture
+                                    </label>
+                                    <input type="file" name="profile_image" id="profile_image" class="d-none" accept="image/*">
+                                </div>
+                                
+                                <!-- FORM FIELDS SECTION -->
+                                <div class="col-md-8">
+                                    <div class="form-floating mb-3">
+                                        <input type="email" id="email" class="form-control" placeholder="Email" disabled>
+                                        <label for="email">Email Address</label>
+                                    </div>
+                                    <div class="form-floating mb-3">
+                                        <input type="text" name="full_name" id="full_name" class="form-control" placeholder="Full Name" required>
+                                        <label for="full_name">Full Name</label>
+                                    </div>
+                                    <div class="form-floating mb-3">
+                                        <input type="tel" name="phone" id="phone" class="form-control" placeholder="Phone Number">
+                                        <label for="phone">Phone Number</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-end mt-3">
+                                <button type="submit" class="btn btn-primary btn-lg" id="save-profile-btn">
+                                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                    <span class="btn-text">Save Changes</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <!-- END: Profile Edit Column -->
+
+            <!-- START: Change Password Column (Narrower: 4 out of 12 columns) -->
+            <div class="col-lg-4 mt-4 mt-lg-0">
+                 <div class="card h-100">
+                    <div class="card-header">
+                        <h5><i class="fas fa-key me-2"></i>Change Password</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <form id="password-update-form">
+                            <div class="form-floating mb-3">
+                                <input type="password" id="old_password" class="form-control" placeholder="Current Password" required>
+                                <label for="old_password">Current Password</label>
+                            </div>
+                            <div class="form-floating mb-3">
+                                <input type="password" id="new_password" class="form-control" placeholder="New Password" required>
+                                <label for="new_password">New Password</label>
+                            </div>
+                            <div class="form-floating mb-3">
+                                <input type="password" id="confirm_password" class="form-control" placeholder="Confirm Password" required>
+                                <label for="confirm_password">Confirm New Password</label>
+                            </div>
+                            <div class="text-end">
+                                <button type="submit" class="btn btn-secondary" id="save-password-btn">
+                                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                    <span class="btn-text">Update Password</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <!-- END: Change Password Column -->
+
+        </div>
+        <!-- END: ROW WRAPPER -->
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    // --- Your existing JavaScript is perfect and requires NO CHANGES ---
+    const messageArea = $('#profile-message-area');
+
+    function showMessage(message, type = 'success') {
+        const alertHtml = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>`;
+        messageArea.html(alertHtml);
+        window.scrollTo(0, 0);
+    }
+
+    const profileForm = $('#profile-update-form');
+    const saveProfileBtn = $('#save-profile-btn');
+
+    function loadProfileData() {
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_profile_handler') }}",
+            method: 'GET',
+            success: function(data) {
+                $('#email').val(data.email);
+                $('#full_name').val(data.full_name);
+                $('#phone').val(data.phone || '');
+                if (data.profile_image_url) {
+                    $('#profile-image-preview').attr('src', data.profile_image_url);
+                } else {
+                    $('#profile-image-preview').attr('src', "https://via.placeholder.com/200");
+                }
+            },
+            error: function() {
+                showMessage('Could not load your profile data. Please try again later.', 'danger');
+            }
+        });
+    }
+
+    $('#profile_image').on('change', function(event) {
+        if (event.target.files && event.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                $('#profile-image-preview').attr('src', e.target.result);
+            }
+            reader.readAsDataURL(event.target.files[0]);
+        }
+    });
+
+    profileForm.on('submit', function(event) {
+        event.preventDefault();
+        saveProfileBtn.prop('disabled', true).find('.spinner-border').removeClass('d-none');
+        saveProfileBtn.find('.btn-text').text('Saving...');
+        const formData = new FormData(this);
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_profile_handler') }}",
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                showMessage(response.message, 'success');
+                loadProfileData();
+                updateNavbarProfileImage();
+            },
+            error: function(jqXHR) {
+                const errorMsg = jqXHR.responseJSON ? jqXHR.responseJSON.error : 'An unexpected error occurred.';
+                showMessage(errorMsg, 'danger');
+            },
+            complete: function() {
+                saveProfileBtn.prop('disabled', false).find('.spinner-border').addClass('d-none');
+                saveProfileBtn.find('.btn-text').text('Save Changes');
+            }
+        });
+    });
+
+    const passwordForm = $('#password-update-form');
+    const savePasswordBtn = $('#save-password-btn');
+
+    passwordForm.on('submit', function(event) {
+        event.preventDefault();
+        const new_password = $('#new_password').val();
+        if (new_password !== $('#confirm_password').val()) {
+            showMessage('New password and confirmation do not match.', 'danger');
+            return;
+        }
+        savePasswordBtn.prop('disabled', true).find('.spinner-border').removeClass('d-none');
+        savePasswordBtn.find('.btn-text').text('Updating...');
+        $.ajax({
+            url: "{{ url_for('buyer_bp.api_update_password') }}",
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                old_password: $('#old_password').val(),
+                new_password: new_password
+            }),
+            success: function(response) {
+                showMessage(response.message, 'success');
+                passwordForm[0].reset();
+            },
+            error: function(jqXHR) {
+                const errorMsg = jqXHR.responseJSON ? jqXHR.responseJSON.error : 'An unexpected error occurred.';
+                showMessage(errorMsg, 'danger');
+            },
+            complete: function() {
+                savePasswordBtn.prop('disabled', false).find('.spinner-border').addClass('d-none');
+                savePasswordBtn.find('.btn-text').text('Update Password');
+            }
+        });
+    });
+
+    loadProfileData();
+});
+</script>
+{% endblock %}

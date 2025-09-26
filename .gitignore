@@ -1,0 +1,141 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# PEP 582; __pypackages__ directory
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak
+venv.bak
+
+# IDE / Editor specific files
+.idea/
+.vscode/
+*.swp
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Project-specific files to ignore
+
+# Ignore the virtual environment folder at the root
+/Scripts/
+/share/
+/Lib/
+/pyvenv.cfg
+/Include/
+
+# Ignore all duplicate project folders if they are just backups
+/new14 - Copy1/
+/new14 - Copy1 - Copy2/
+/new14 - Copy1 - Copy2 - github/
+/total/
+
+# Ignore sensitive configuration files if they contain secrets
+# It's good practice to keep the main config.py but use a .env file for secrets
+# If your config.py contains sensitive data, add it here.
+# config.py 
+
+# Ignore the .env file which contains environment variables and secrets
+.env
+
+# Ignore user-uploaded files in the static directory
+# It's better to have a placeholder in the folder rather than committing all uploads
+static/uploads/
+
+# In your case, you might have uploads in both the main static folder and the blueprint's static folder
+/new14/static/uploads/
+/new14/electronic_ecommerce/static/uploads/
