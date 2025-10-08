@@ -12,7 +12,7 @@ DB_CONFIG = {
     'database': 'electronics_ecommerce_db'
 }
 
-def resetold_password():
+def resetoldpassword():
     """Connects to the DB and forcefully updates the admin password."""
     admin_email = "admin@electronics.com"
     
